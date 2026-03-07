@@ -19,12 +19,12 @@ Développer une plateforme web de surveillance spatiale permettant de :
 
 ## 2. Milestones et suivi
 
-| Milestone | Objectif | Statut | Notes / Actions |
-|-----------|----------|--------|----------------|
-| 1 | Moteur orbital minimal | TERMINE | Intégration Orekit, initialisation orekit-data, propagation TLE test |
-| 2 | Ground track 2D | À venir | Création API REST et affichage sur carte Leaflet |
+| Milestone | Objectif | Statut | Notes |
+|-----------|----------|--------|-------|
+| 1 | Moteur orbital minimal | Terminé | Orekit 13.1.4, propagation SGP4, API REST, 12 tests unitaires |
+| 2 | Ground track 2D | En cours | Backend + frontend opérationnels, bugs de rafraichissement trajectoire à corriger |
 | 3 | Détection de rapprochements | À venir | Module de calcul distance 3D entre satellites |
-| 4 | Analyse d’évolution orbitale | À venir | Suivi paramètres orbitaux, détection de dérive ou décrochage |
+| 4 | Analyse d'évolution orbitale | À venir | Suivi paramètres orbitaux, détection de dérive ou décrochage |
 | 5 | Surveillance des débris | À venir | Heatmap orbitale, analyse zones à forte densité |
 | 6 | Version vitrine | À venir | Application complète avec visualisation 3D et analyses |
 
@@ -32,10 +32,10 @@ Développer une plateforme web de surveillance spatiale permettant de :
 
 ## 3. Décisions techniques
 
-- **Backend** : Java 17, Spring Boot, Maven
-- **Bibliothèque scientifique** : Orekit 12.0
-- **Base de données** : PostgreSQL (pour stockage TLE et résultats d’analyse)
-- **Frontend** : Angular, visualisation 3D avec CesiumJS (v1 pour test, v2 pour vitrine)  
+- **Backend** : Java 17, Spring Boot 4.0.3, Maven  
+- **Bibliothèque scientifique** : Orekit 13.1.4  
+- **Base de données** : PostgreSQL (prod) / H2 en mémoire (dev)  
+- **Frontend** : Angular 21 (standalone), Leaflet 1.9, CesiumJS prévu en M6  
 - **Méthodologie** : Milestones incrémentales, tests unitaires pour chaque module scientifique  
 
 ---
@@ -52,15 +52,20 @@ Développer une plateforme web de surveillance spatiale permettant de :
 - Téléchargement et placement orekit-data  
 
 ### 2026-03-07
-- Étape 1.1 : nettoyage `pom.xml` (dépendances de test invalides → `spring-boot-starter-test`, ajout `h2`)
-- Étape 1.2 : `application.properties` configuré (port 8080, profil `dev`) + `application-dev.properties` (H2 en mémoire) + `SecurityConfig` permissif sur profil `dev`
-- Étape 1.3 : `OrekitInitializer` corrigé — `ClassPathResource` à la place du chemin relatif fragile
-- Étape 1.4 : DTO `SatellitePosition` créé (record Java immuable : name, epoch, lat, lon, alt, x, y, z)
-- Étape 1.5 : `PropagationService` implémenté — `propagate()` et `groundTrack()` via `TLEPropagator` + conversion TEME→ITRF→GeodeticPoint
-- Étape 1.6 : `OrbitController` exposé — `GET /api/v1/orbit/position` et `GET /api/v1/orbit/groundtrack`
-- Étape 1.7 : `PropagationServiceTest` — 12 tests unitaires (position instantanée + ground track, validations physiques ISS)
+**Milestone 1 — Backend**
+- `pom.xml` nettoyé, H2 ajouté, `application.properties` configuré (port 8080, profil dev)
+- `OrekitInitializer` corrigé (`ClassPathResource`), `SecurityConfig` permissif en dev
+- `SatellitePosition` (DTO record), `PropagationService` (SGP4, TEME→ITRF→géodésique)
+- `OrbitController` : `GET /api/v1/orbit/position` et `GET /api/v1/orbit/groundtrack`
+- `PropagationServiceTest` : 12 tests unitaires (validations physiques ISS)
 
-
+**Milestone 2 — Frontend**
+- `OrbitService` : `getGroundTrack()` via `HttpClient`, interface `SatellitePosition` typée
+- `MapComponent` : carte Leaflet OSM, polyline ground track, marqueur sur position initiale
+- `TleFormComponent` : formulaire réactif, validation format TLE, pré-rempli ISS
+- `OrbitPageComponent` : orchestration form → service → carte, gestion états chargement/erreur
+- CORS backend : `CorsConfigurationSource` sur `/api/**` → `localhost:4200`
+- `README.md` : architecture, flux de données, stack, scripts
 
 
 ---

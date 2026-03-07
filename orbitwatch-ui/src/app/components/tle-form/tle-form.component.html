@@ -1,0 +1,46 @@
+<form [formGroup]="form" (ngSubmit)="onSubmit()" class="tle-form">
+  <h2>Paramètres de propagation</h2>
+
+  <div class="field">
+    <label for="name">Nom du satellite</label>
+    <input id="name" formControlName="name" placeholder="ex: ISS" />
+  </div>
+
+  <div class="field">
+    <label for="tle1">TLE — Ligne 1</label>
+    <input id="tle1" formControlName="tle1" placeholder="1 XXXXX..." />
+    @if (f['tle1'].invalid && f['tle1'].touched) {
+      <span class="error">
+        @if (f['tle1'].errors?.['required']) { Champ obligatoire. }
+        @if (f['tle1'].errors?.['tleFormat']) { Doit commencer par "1 ". }
+      </span>
+    }
+  </div>
+
+  <div class="field">
+    <label for="tle2">TLE — Ligne 2</label>
+    <input id="tle2" formControlName="tle2" placeholder="2 XXXXX..." />
+    @if (f['tle2'].invalid && f['tle2'].touched) {
+      <span class="error">
+        @if (f['tle2'].errors?.['required']) { Champ obligatoire. }
+        @if (f['tle2'].errors?.['tleFormat']) { Doit commencer par "2 ". }
+      </span>
+    }
+  </div>
+
+  <div class="row">
+    <div class="field">
+      <label for="duration">Durée (min)</label>
+      <input id="duration" type="number" formControlName="duration" min="1" max="1440" />
+    </div>
+    <div class="field">
+      <label for="step">Pas (s)</label>
+      <input id="step" type="number" formControlName="step" min="10" max="300" />
+    </div>
+  </div>
+
+  <button type="submit" [disabled]="form.invalid || loading">
+    {{ loading ? 'Calcul...' : 'Propager' }}
+  </button>
+</form>
+
