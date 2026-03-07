@@ -23,3 +23,23 @@ build/
 # Temporary files
 *.tmp
 *.swp
+
+# Node modules
+node_modules/
+
+# Fichiers de build
+dist/
+out-tsc/
+tmp/
+temp/
+
+# Logs
+npm-debug.log*
+yarn-debug.log*
+yarn-error.log*
+pnpm-debug.log*
+
+
+# System files
+.DS_Store
+Thumbs.db
