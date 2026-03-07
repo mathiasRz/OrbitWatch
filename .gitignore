@@ -1,0 +1,25 @@
+# Maven
+target/
+
+# Logs
+*.log
+
+# IntelliJ
+.idea/
+*.iml
+*.iws
+*.ipr
+
+
+
+# Environment
+.env
+.env.* (si tu veux pas versionner)
+orekit-data/
+
+# Build
+build/
+
+# Temporary files
+*.tmp
+*.swp
