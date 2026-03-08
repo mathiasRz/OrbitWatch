@@ -1,6 +1,6 @@
 import {
-  Component, Input, OnChanges, OnDestroy,
-  SimpleChanges, AfterViewInit, ElementRef, ViewChild
+  Component, input, effect, OnDestroy,
+  AfterViewInit, ElementRef, ViewChild
 } from '@angular/core';
 import * as L from 'leaflet';
 import { SatellitePosition } from '../../models/satellite-position.model';
@@ -11,21 +11,29 @@ import { SatellitePosition } from '../../models/satellite-position.model';
   templateUrl: './map.component.html',
   styleUrl: './map.component.scss'
 })
-export class MapComponent implements AfterViewInit, OnChanges, OnDestroy {
+export class MapComponent implements AfterViewInit, OnDestroy {
   @ViewChild('mapContainer', { static: true }) mapContainer!: ElementRef<HTMLDivElement>;
-  @Input() track: SatellitePosition[] = [];
+  track = input<SatellitePosition[]>([]);
 
   private map?: L.Map;
   private polyline?: L.Polyline;
   private marker?: L.Marker;
 
-  ngAfterViewInit(): void {
-    this.initMap();
+  constructor() {
+    effect(() => {
+      const t = this.track();
+      if (this.map) {
+        this.renderTrack(t);
+      }
+    });
   }
 
-  ngOnChanges(changes: SimpleChanges): void {
-    if (changes['track'] && this.map) {
-      this.renderTrack();
+  ngAfterViewInit(): void {
+    this.initMap();
+    // Rendre le track initial s'il est déjà disponible
+    const t = this.track();
+    if (t.length) {
+      this.renderTrack(t);
     }
   }
 
@@ -44,22 +52,17 @@ export class MapComponent implements AfterViewInit, OnChanges, OnDestroy {
       attribution: '© <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a>',
       maxZoom: 18
     }).addTo(this.map);
-
-    if (this.track.length) {
-      this.renderTrack();
-    }
   }
 
-  private renderTrack(): void {
+  private renderTrack(track: SatellitePosition[]): void {
     if (!this.map) return;
 
-    // Nettoyer les couches précédentes
     this.polyline?.remove();
     this.marker?.remove();
 
-    if (!this.track.length) return;
+    if (!track.length) return;
 
-    const latlngs: L.LatLngTuple[] = this.track.map(p => [p.latitude, p.longitude]);
+    const latlngs: L.LatLngTuple[] = track.map(p => [p.latitude, p.longitude]);
 
     this.polyline = L.polyline(latlngs, {
       color: '#00d4ff',
@@ -67,8 +70,7 @@ export class MapComponent implements AfterViewInit, OnChanges, OnDestroy {
       opacity: 0.85
     }).addTo(this.map);
 
-    // Marqueur sur la position initiale (époque du TLE)
-    const first = this.track[0];
+    const first = track[0];
     this.marker = L.marker([first.latitude, first.longitude], {
       icon: L.divIcon({
         className: '',

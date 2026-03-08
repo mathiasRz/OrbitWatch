@@ -1,20 +1,20 @@
 <div class="orbit-page">
   <aside class="sidebar">
     <div class="logo">🛰 OrbitWatch</div>
-    <app-tle-form #tleForm (propagate)="onPropagate($event)" />
-    @if (error) {
-      <div class="error-banner">⚠ {{ error }}</div>
+    <app-tle-form [loading]="loading()" (propagate)="onPropagate($event)"></app-tle-form>
+    @if (error()) {
+      <div class="error-banner">⚠ {{ error() }}</div>
     }
-    @if (track.length) {
+    @if (track().length) {
       <div class="info-box">
-        <p>{{ track.length }} points générés</p>
-        <p>Satellite : <strong>{{ track[0].name }}</strong></p>
-        <p>Alt. moy. : <strong>{{ avgAltitude | number:'1.0-0' }} km</strong></p>
+        <p>{{ track().length }} points générés</p>
+        <p>Satellite : <strong>{{ track()[0].name }}</strong></p>
+        <p>Alt. moy. : <strong>{{ avgAltitude() | number:'1.0-0' }} km</strong></p>
       </div>
     }
   </aside>
   <main class="map-wrapper">
-    <app-map [track]="track" />
+    <app-map [track]="track()"></app-map>
   </main>
 </div>
 

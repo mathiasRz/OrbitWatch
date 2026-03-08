@@ -1,4 +1,4 @@
-import { Component, Output, EventEmitter, OnInit } from '@angular/core';
+import { Component, Output, EventEmitter, OnInit, input } from '@angular/core';
 import { ReactiveFormsModule, FormBuilder, FormGroup, Validators, AbstractControl, ValidationErrors } from '@angular/forms';
 import { CommonModule } from '@angular/common';
 import { GroundTrackParams } from '../../services/orbit.service';
@@ -10,7 +10,7 @@ const ISS_TLE2 = '2 25544  51.6400 200.0000 0003000  60.0000 300.1476 15.4956000
 function tleLineValidator(lineNumber: 1 | 2) {
   return (control: AbstractControl): ValidationErrors | null => {
     const val: string = (control.value ?? '').trim();
-    if (!val) return null; // géré par Validators.required
+    if (!val) return null;
     return val.startsWith(`${lineNumber} `) ? null : { tleFormat: true };
   };
 }
@@ -24,9 +24,9 @@ function tleLineValidator(lineNumber: 1 | 2) {
 })
 export class TleFormComponent implements OnInit {
   @Output() propagate = new EventEmitter<GroundTrackParams>();
+  loading = input(false);
 
   form!: FormGroup;
-  loading = false;
 
   constructor(private fb: FormBuilder) {}
 
@@ -47,10 +47,4 @@ export class TleFormComponent implements OnInit {
     const { name, tle1, tle2, duration, step } = this.form.value;
     this.propagate.emit({ name, tle1, tle2, duration, step });
   }
-
-  setLoading(v: boolean): void {
-    this.loading = v;
-    v ? this.form.disable() : this.form.enable();
-  }
 }
-
