@@ -4,9 +4,7 @@ import { Observable } from 'rxjs';
 import { SatellitePosition } from '../models/satellite-position.model';
 
 export interface GroundTrackParams {
-  tle1: string;
-  tle2: string;
-  name?: string;
+  name: string;
   epoch?: string;
   duration?: number;
   step?: number;
@@ -15,24 +13,24 @@ export interface GroundTrackParams {
 @Injectable({ providedIn: 'root' })
 export class OrbitService {
   private readonly http = inject(HttpClient);
-  private readonly baseUrl = 'http://localhost:8080/api/v1/orbit';
+  private readonly baseUrl    = 'http://localhost:8080/api/v1/orbit';
+  private readonly catalogUrl = 'http://localhost:8080/api/v1/tle';
 
-  getPosition(tle1: string, tle2: string, name?: string, epoch?: string): Observable<SatellitePosition> {
-    let params = new HttpParams()
-      .set('tle1', tle1)
-      .set('tle2', tle2);
-    if (name)  params = params.set('name', name);
+  getSatelliteNames(): Observable<string[]> {
+    return this.http.get<string[]>(`${this.catalogUrl}/names`);
+  }
+
+  getPosition(name: string, epoch?: string): Observable<SatellitePosition> {
+    let params = new HttpParams().set('name', name);
     if (epoch) params = params.set('epoch', epoch);
     return this.http.get<SatellitePosition>(`${this.baseUrl}/position`, { params });
   }
 
   getGroundTrack(p: GroundTrackParams): Observable<SatellitePosition[]> {
     let params = new HttpParams()
-      .set('tle1', p.tle1)
-      .set('tle2', p.tle2)
+      .set('name',     p.name)
       .set('duration', p.duration ?? 90)
       .set('step',     p.step     ?? 60);
-    if (p.name)  params = params.set('name',  p.name);
     if (p.epoch) params = params.set('epoch', p.epoch);
     return this.http.get<SatellitePosition[]>(`${this.baseUrl}/groundtrack`, { params });
   }

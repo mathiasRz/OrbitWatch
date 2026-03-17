@@ -22,7 +22,8 @@ label {
   color: #aaa;
 }
 
-input {
+input,
+select {
   background: #1e1e2e;
   border: 1px solid #444;
   border-radius: 4px;
@@ -36,6 +37,29 @@ input {
     border-color: #00d4ff;
   }
 }
+
+select {
+  cursor: pointer;
+  appearance: none;
+  background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='12' height='8' viewBox='0 0 12 8'%3E%3Cpath fill='%2300d4ff' d='M1 1l5 5 5-5'/%3E%3C/svg%3E");
+  background-repeat: no-repeat;
+  background-position: right 0.75rem center;
+  padding-right: 2rem;
+}
+
+.names-state {
+  padding: 0.5rem 0.75rem;
+  font-size: 0.82rem;
+  color: #aaa;
+  border: 1px solid #333;
+  border-radius: 4px;
+
+  &.error {
+    color: #ff4b4b;
+    border-color: #ff4b4b44;
+  }
+}
+
 
 .row {
   display: grid;

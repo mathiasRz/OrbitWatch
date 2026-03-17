@@ -1,19 +1,7 @@
-import { Component, Output, EventEmitter, OnInit, input } from '@angular/core';
-import { ReactiveFormsModule, FormBuilder, FormGroup, Validators, AbstractControl, ValidationErrors } from '@angular/forms';
+import { Component, Output, EventEmitter, OnInit, input, signal } from '@angular/core';
+import { ReactiveFormsModule, FormBuilder, FormGroup, Validators } from '@angular/forms';
 import { CommonModule } from '@angular/common';
-import { GroundTrackParams } from '../../services/orbit.service';
-
-// TLE ISS pré-rempli pour faciliter les tests
-const ISS_TLE1 = '1 25544U 98067A   26066.50000000  .00020000  00000+0  35000-3 0  9990';
-const ISS_TLE2 = '2 25544  51.6400 200.0000 0003000  60.0000 300.1476 15.49560000999999';
-
-function tleLineValidator(lineNumber: 1 | 2) {
-  return (control: AbstractControl): ValidationErrors | null => {
-    const val: string = (control.value ?? '').trim();
-    if (!val) return null;
-    return val.startsWith(`${lineNumber} `) ? null : { tleFormat: true };
-  };
-}
+import { OrbitService, GroundTrackParams } from '../../services/orbit.service';
 
 @Component({
   selector: 'app-tle-form',
@@ -27,16 +15,33 @@ export class TleFormComponent implements OnInit {
   loading = input(false);
 
   form!: FormGroup;
+  satelliteNames = signal<string[]>([]);
+  namesLoading   = signal(true);
+  namesError     = signal<string | null>(null);
 
-  constructor(private fb: FormBuilder) {}
+  constructor(private fb: FormBuilder, private orbitService: OrbitService) {}
 
   ngOnInit(): void {
     this.form = this.fb.group({
-      name:     [ISS_TLE1 ? 'ISS' : ''],
-      tle1:     [ISS_TLE1, [Validators.required, tleLineValidator(1)]],
-      tle2:     [ISS_TLE2, [Validators.required, tleLineValidator(2)]],
-      duration: [90,  [Validators.required, Validators.min(1), Validators.max(1440)]],
-      step:     [60,  [Validators.required, Validators.min(10), Validators.max(300)]]
+      name:     ['', [Validators.required]],
+      duration: [90, [Validators.required, Validators.min(1), Validators.max(1440)]],
+      step:     [60, [Validators.required, Validators.min(10), Validators.max(300)]]
+    });
+
+    this.orbitService.getSatelliteNames().subscribe({
+      next: (names) => {
+        this.satelliteNames.set(names);
+        // Pré-sélectionne le premier satellite disponible
+        if (names.length > 0) {
+          this.form.get('name')!.setValue(names[0]);
+        }
+        this.namesLoading.set(false);
+      },
+      error: (err) => {
+        this.namesError.set('Impossible de charger la liste des satellites.');
+        this.namesLoading.set(false);
+        console.error('[TleForm] Erreur chargement noms satellites', err);
+      }
     });
   }
 
@@ -44,7 +49,7 @@ export class TleFormComponent implements OnInit {
 
   onSubmit(): void {
     if (this.form.invalid) return;
-    const { name, tle1, tle2, duration, step } = this.form.value;
-    this.propagate.emit({ name, tle1, tle2, duration, step });
+    const { name, duration, step } = this.form.value;
+    this.propagate.emit({ name, duration, step });
   }
 }

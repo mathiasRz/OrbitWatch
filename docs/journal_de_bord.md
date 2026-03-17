@@ -22,7 +22,7 @@ Développer une plateforme web de surveillance spatiale permettant de :
 | Milestone | Objectif | Statut | Notes |
 |-----------|----------|--------|-------|
 | 1 | Moteur orbital minimal | Terminé | Orekit 13.1.4, propagation SGP4, API REST, 12 tests unitaires |
-| 2 | Ground track 2D | En cours | Backend + frontend opérationnels, bugs de rafraichissement trajectoire à corriger |
+| 2 | Ground track 2D | En cours | Backend + frontend opérationnels, intégration CelesTrak, bugs de rafraichissement trajectoire à corriger |
 | 3 | Détection de rapprochements | À venir | Module de calcul distance 3D entre satellites |
 | 4 | Analyse d'évolution orbitale | À venir | Suivi paramètres orbitaux, détection de dérive ou décrochage |
 | 5 | Surveillance des débris | À venir | Heatmap orbitale, analyse zones à forte densité |
@@ -51,6 +51,7 @@ Développer une plateforme web de surveillance spatiale permettant de :
 - Création structure Maven / Spring Boot  
 - Téléchargement et placement orekit-data  
 
+---
 ### 2026-03-07
 **Milestone 1 — Backend**
 - `pom.xml` nettoyé, H2 ajouté, `application.properties` configuré (port 8080, profil dev)
@@ -66,6 +67,16 @@ Développer une plateforme web de surveillance spatiale permettant de :
 - `OrbitPageComponent` : orchestration form → service → carte, gestion états chargement/erreur
 - CORS backend : `CorsConfigurationSource` sur `/api/**` → `localhost:4200`
 - `README.md` : architecture, flux de données, stack, scripts
+
+### 2026-03-17
+**Milestone 2 — Intégration CelesTrak & architecture catalogue TLE**
+
+- `CelesTrackClient` : client HTTP dédié (`RestTemplate`), télécharge un catalogue CelesTrak par son nom (`GROUP=<name>&FORMAT=TLE`), URL configurable via `tle.celestrak.base-url`
+- `TleService` refactorisé : parsing TLE 3 lignes (`parseTle3Lines`), stockage en mémoire thread-safe (`ConcurrentHashMap` + `CopyOnWriteArrayList`), méthodes `findAll`, `findByCatalog`, `findByName`, `resolveUniqueTle` (404/409 si absent/ambigu), `parseEpoch`
+- `FetchCelesTrackTLEJob` : job `@Scheduled` (démarrage immédiat + refresh toutes les 6 h), charge les catalogues configurés via `tle.celestrak.catalogs` (défaut : `stations,active,visual`)
+- `TleController` : `GET /api/v1/tle/names` (liste triée des satellites) et `GET /api/v1/tle/status` (catalogues chargés + total TLE)
+- `OrbitController` mis à jour : résolution du satellite par nom depuis le catalogue en mémoire et propagation
+- **Tests unitaires**
 
 
 ---
