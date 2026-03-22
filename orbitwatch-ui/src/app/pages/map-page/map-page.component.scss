@@ -1,0 +1,53 @@
+.map-page {
+  display: flex;
+  flex-direction: column;
+  height: 100vh;
+  background: #0a0a0f;
+  font-family: 'Inter', sans-serif;
+}
+
+.topbar {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 0 1.5rem;
+  height: 48px;
+  background: #12121a;
+  border-bottom: 1px solid #2a2a3a;
+  flex-shrink: 0;
+}
+
+.logo {
+  font-size: 1.1rem;
+  font-weight: 700;
+  color: #00d4ff;
+}
+
+.nav-links {
+  display: flex;
+  gap: 1.5rem;
+
+  a {
+    color: #888;
+    text-decoration: none;
+    font-size: 0.85rem;
+    transition: color 0.2s;
+
+    &:hover, &.active { color: #00d4ff; }
+  }
+}
+
+.content {
+  flex: 1;
+  min-height: 0;
+  display: flex;
+  flex-direction: column;
+
+  app-map-live {
+    flex: 1;
+    min-height: 0;
+    display: flex;
+    flex-direction: column;
+  }
+}
+

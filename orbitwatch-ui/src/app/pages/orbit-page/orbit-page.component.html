@@ -1,6 +1,9 @@
 <div class="orbit-page">
   <aside class="sidebar">
-    <div class="logo">🛰 OrbitWatch</div>
+    <div class="logo">
+      🛰 OrbitWatch
+      <a routerLink="/map" class="back-link">← Carte live</a>
+    </div>
     <app-tle-form [loading]="loading()" (propagate)="onPropagate($event)"></app-tle-form>
     @if (error()) {
       <div class="error-banner">⚠ {{ error() }}</div>

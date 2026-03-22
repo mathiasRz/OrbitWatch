@@ -1,0 +1,14 @@
+<div class="map-page">
+  <header class="topbar">
+    <span class="logo">🛰 OrbitWatch</span>
+    <nav class="nav-links">
+      <a routerLink="/map"   routerLinkActive="active">Carte live</a>
+      <a routerLink="/orbit" routerLinkActive="active">Ground track</a>
+    </nav>
+  </header>
+
+  <div class="content">
+    <app-map-live (satelliteSelected)="onSatelliteSelected($event)" />
+  </div>
+</div>
+

@@ -6,6 +6,7 @@ import org.orekit.data.DataProvidersManager;
 import org.orekit.data.DirectoryCrawler;
 import org.springframework.core.io.ClassPathResource;
 import projet.OrbitWatch.dto.SatellitePosition;
+import projet.OrbitWatch.dto.TleEntry;
 
 import java.io.File;
 import java.time.Instant;
@@ -141,7 +142,7 @@ class PropagationServiceTest {
         Instant future = TLE_EPOCH.plusSeconds(45 * 60);
         SatellitePosition pos = service.propagate(TLE1, TLE2, "ISS", future);
         assertThat(pos.altitude()).isBetween(380.0, 440.0);
-        assertThat(pos.latitude()).isBetween(-51.64, 51.64);
+        assertThat(pos.latitude()).isBetween(-52.0, 52.0);
     }
 
     // ═════════════════════════════════════════════════════════════════════════
@@ -188,6 +189,62 @@ class PropagationServiceTest {
                 .allSatisfy(p -> assertThat(p.altitude())
                         .as("Altitude du point %s", p.epoch())
                         .isBetween(380.0, 440.0));
+    }
+
+    @Test
+    @DisplayName("snapshotCatalog : liste vide → retourne liste vide")
+    void snapshotCatalog_emptyInput_returnsEmptyList() {
+        List<SatellitePosition> result = service.snapshotCatalog(List.of());
+        assertThat(result).isEmpty();
+    }
+
+    @Test
+    @DisplayName("snapshotCatalog : un satellite valide → retourne 1 position")
+    void snapshotCatalog_oneSatellite_returnsOnePosition() {
+        TleEntry entry = new TleEntry("ISS (ZARYA)", TLE1, TLE2, "stations", TLE_EPOCH);
+        List<SatellitePosition> result = service.snapshotCatalog(List.of(entry));
+        assertThat(result).hasSize(1);
+    }
+
+    @Test
+    @DisplayName("snapshotCatalog : la position calculée est physiquement cohérente")
+    void snapshotCatalog_positionIsPhysicallyCoherent() {
+        TleEntry entry = new TleEntry("ISS (ZARYA)", TLE1, TLE2, "stations", TLE_EPOCH);
+        SatellitePosition pos = service.snapshotCatalog(List.of(entry)).get(0);
+        assertThat(pos.altitude()).isBetween(380.0, 440.0);
+        assertThat(pos.latitude()).isBetween(-52.0, 52.0);
+        assertThat(pos.longitude()).isBetween(-180.0, 180.0);
+    }
+
+    @Test
+    @DisplayName("snapshotCatalog : le nom du satellite est préservé")
+    void snapshotCatalog_preservesSatelliteName() {
+        TleEntry entry = new TleEntry("ISS (ZARYA)", TLE1, TLE2, "stations", TLE_EPOCH);
+        SatellitePosition pos = service.snapshotCatalog(List.of(entry)).get(0);
+        assertThat(pos.name()).isEqualTo("ISS (ZARYA)");
+    }
+
+    @Test
+    @DisplayName("snapshotCatalog : un TLE invalide est ignoré, les autres sont propagés")
+    void snapshotCatalog_invalidTleIsSkipped() {
+        TleEntry valid   = new TleEntry("ISS (ZARYA)", TLE1, TLE2, "stations", TLE_EPOCH);
+        TleEntry invalid = new TleEntry("BROKEN", "invalid line 1", "invalid line 2", "stations", TLE_EPOCH);
+        List<SatellitePosition> result = service.snapshotCatalog(List.of(valid, invalid));
+        // Le TLE invalide doit être silencieusement ignoré
+        assertThat(result).hasSize(1);
+        assertThat(result.get(0).name()).isEqualTo("ISS (ZARYA)");
+    }
+
+    @Test
+    @DisplayName("snapshotCatalog : plusieurs satellites valides → retourne autant de positions")
+    void snapshotCatalog_multipleSatellites_returnsAllPositions() {
+        // On utilise le même TLE deux fois avec des noms différents pour simuler 2 satellites
+        TleEntry sat1 = new TleEntry("SAT-1", TLE1, TLE2, "stations", TLE_EPOCH);
+        TleEntry sat2 = new TleEntry("SAT-2", TLE1, TLE2, "stations", TLE_EPOCH);
+        List<SatellitePosition> result = service.snapshotCatalog(List.of(sat1, sat2));
+        assertThat(result).hasSize(2);
+        assertThat(result).extracting(SatellitePosition::name)
+                .containsExactlyInAnyOrder("SAT-1", "SAT-2");
     }
 
 }

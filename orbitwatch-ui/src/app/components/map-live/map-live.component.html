@@ -1,0 +1,22 @@
+<div class="map-live-wrapper">
+  <!-- Barre de statut -->
+  <div class="status-bar">
+    @if (loading) {
+      <span class="status-loading">⏳ Chargement...</span>
+    } @else if (error) {
+      <span class="status-error">⚠ {{ error }}</span>
+    } @else {
+      <span class="status-ok">
+        🛰 {{ satelliteCount }} satellites
+        &nbsp;·&nbsp;
+        Mis à jour : {{ lastRefresh | date:'HH:mm:ss' }}
+        &nbsp;·&nbsp;
+        <span class="refresh-hint">rafraîchi toutes les 60 s</span>
+      </span>
+    }
+  </div>
+
+  <!-- Carte Leaflet -->
+  <div #mapContainer class="map-container"></div>
+</div>
+

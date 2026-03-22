@@ -18,10 +18,12 @@ import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.stereotype.Service;
 import projet.OrbitWatch.dto.SatellitePosition;
+import projet.OrbitWatch.dto.TleEntry;
 
 import java.time.Instant;
 import java.util.ArrayList;
 import java.util.List;
+import java.util.stream.Collectors;
 
 /**
  * Service de propagation orbitale basé sur le propagateur SGP4/SDP4 d'Orekit.
@@ -155,6 +157,30 @@ public class PropagationService {
         log.info("Ground track généré : {} points sur {} min (pas {}s)",
                 track.size(), durationMinutes, stepSeconds);
         return track;
+    }
+
+    /**
+     * Calcule la position instantanée (Instant.now()) de chaque satellite
+     * présent dans la liste fournie, en parallèle.
+     *
+     * <p>Utilisé par {@code GET /api/v1/orbit/positions} et par le {@code ConjunctionScanJob}.
+     *
+     * @param entries liste des TleEntry à propager
+     * @return liste de {@link SatellitePosition} — les entrées en erreur sont silencieusement ignorées
+     */
+    public List<SatellitePosition> snapshotCatalog(List<TleEntry> entries) {
+        Instant now = Instant.now();
+        return entries.parallelStream()
+                .map(e -> {
+                    try {
+                        return propagate(e.line1(), e.line2(), e.name(), now);
+                    } catch (Exception ex) {
+                        log.warn("[PropagationService] Propagation ignorée pour '{}' : {}", e.name(), ex.getMessage());
+                        return null;
+                    }
+                })
+                .filter(p -> p != null)
+                .collect(Collectors.toList());
     }
 }
 

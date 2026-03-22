@@ -29,7 +29,7 @@ import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.
  * Note : {@code TleService.parseEpoch} est une méthode statique pure, elle n'est
  * pas mockée — on utilise {@code any()} sur l'Instant dans les stubs du PropagationService.
  */
-@WebMvcTest(OrbitController.class)
+@WebMvcTest({OrbitController.class, GlobalExceptionHandler.class})
 class OrbitControllerTest {
 
     @Autowired
@@ -170,6 +170,68 @@ class OrbitControllerTest {
     void getGroundTrack_returns400WhenNameMissing() throws Exception {
         mockMvc.perform(get("/api/v1/orbit/groundtrack"))
                 .andExpect(status().isBadRequest());
+    }
+
+    @Test
+    @DisplayName("GET /positions : retourne 200 avec la liste des positions du catalogue")
+    void getPositions_returnsPositionList() throws Exception {
+        List<SatellitePosition> positions = List.of(
+                new SatellitePosition("ISS (ZARYA)", EPOCH, 45.0, 10.0, 410.0, 1000.0, 2000.0, 3000.0),
+                new SatellitePosition("TIANGONG", EPOCH, 30.0, 20.0, 390.0, 1100.0, 2100.0, 3100.0)
+        );
+        when(tleService.findByCatalog("stations")).thenReturn(List.of(ISS_ENTRY, ISS_ENTRY));
+        when(propagationService.snapshotCatalog(anyList())).thenReturn(positions);
+
+        mockMvc.perform(get("/api/v1/orbit/positions"))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$", hasSize(2)))
+                .andExpect(jsonPath("$[0].name", is("ISS (ZARYA)")))
+                .andExpect(jsonPath("$[1].name", is("TIANGONG")));
+    }
+
+    @Test
+    @DisplayName("GET /positions : utilise le paramètre catalog transmis")
+    void getPositions_forwardsCatalogParam() throws Exception {
+        when(tleService.findByCatalog("active")).thenReturn(List.of(ISS_ENTRY));
+        when(propagationService.snapshotCatalog(anyList())).thenReturn(List.of(ISS_POS));
+
+        mockMvc.perform(get("/api/v1/orbit/positions").param("catalog", "active"))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$", hasSize(1)));
+    }
+
+    @Test
+    @DisplayName("GET /positions : catalogue inconnu → retourne 200 avec liste vide")
+    void getPositions_unknownCatalog_returnsEmptyList() throws Exception {
+        when(tleService.findByCatalog("unknown")).thenReturn(List.of());
+
+        mockMvc.perform(get("/api/v1/orbit/positions").param("catalog", "unknown"))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$", hasSize(0)));
+    }
+
+    @Test
+    @DisplayName("GET /positions : catalog par défaut est 'stations'")
+    void getPositions_defaultCatalogIsStations() throws Exception {
+        when(tleService.findByCatalog("stations")).thenReturn(List.of(ISS_ENTRY));
+        when(propagationService.snapshotCatalog(anyList())).thenReturn(List.of(ISS_POS));
+
+        mockMvc.perform(get("/api/v1/orbit/positions"))
+                .andExpect(status().isOk());
+
+        // Vérifie que findByCatalog a bien été appelé avec "stations"
+        org.mockito.Mockito.verify(tleService).findByCatalog("stations");
+    }
+
+    @Test
+    @DisplayName("GET /positions : erreur technique → retourne 500")
+    void getPositions_technicalError_returns500() throws Exception {
+        when(tleService.findByCatalog("stations")).thenReturn(List.of(ISS_ENTRY));
+        when(propagationService.snapshotCatalog(anyList()))
+                .thenThrow(new RuntimeException("Erreur Orekit inattendue"));
+
+        mockMvc.perform(get("/api/v1/orbit/positions"))
+                .andExpect(status().isInternalServerError());
     }
 }
 

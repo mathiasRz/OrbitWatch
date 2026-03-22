@@ -1,5 +1,6 @@
-import { Component, signal, computed } from '@angular/core';
+import { Component, signal, computed, OnInit } from '@angular/core';
 import { DecimalPipe } from '@angular/common';
+import { ActivatedRoute, RouterLink } from '@angular/router';
 import { OrbitService, GroundTrackParams } from '../../services/orbit.service';
 import { SatellitePosition } from '../../models/satellite-position.model';
 import { MapComponent } from '../../components/map/map.component';
@@ -8,11 +9,11 @@ import { TleFormComponent } from '../../components/tle-form/tle-form.component';
 @Component({
   selector: 'app-orbit-page',
   standalone: true,
-  imports: [DecimalPipe, MapComponent, TleFormComponent],
+  imports: [DecimalPipe, MapComponent, TleFormComponent, RouterLink],
   templateUrl: './orbit-page.component.html',
   styleUrl: './orbit-page.component.scss'
 })
-export class OrbitPageComponent {
+export class OrbitPageComponent implements OnInit {
   track    = signal<SatellitePosition[]>([]);
   error    = signal<string | null>(null);
   loading  = signal(false);
@@ -22,7 +23,14 @@ export class OrbitPageComponent {
     return t.reduce((sum, p) => sum + p.altitude, 0) / t.length;
   });
 
-  constructor(private orbitService: OrbitService) {}
+  constructor(private orbitService: OrbitService, private route: ActivatedRoute) {}
+
+  ngOnInit(): void {
+    const name = this.route.snapshot.queryParamMap.get('name');
+    if (name) {
+      this.onPropagate({ name, duration: 90, step: 60 });
+    }
+  }
 
   onPropagate(params: GroundTrackParams): void {
     this.error.set(null);

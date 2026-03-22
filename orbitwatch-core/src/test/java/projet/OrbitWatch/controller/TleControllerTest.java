@@ -22,7 +22,7 @@ import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.
  * Tests du TleController en couche web (MockMvc).
  * Valide les endpoints GET /api/v1/tle/names et /api/v1/tle/status.
  */
-@WebMvcTest(TleController.class)
+@WebMvcTest({TleController.class, GlobalExceptionHandler.class})
 class TleControllerTest {
 
     @Autowired

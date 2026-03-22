@@ -1,0 +1,104 @@
+:host {
+  display: flex;
+  flex-direction: column;
+  flex: 1;
+  min-height: 0;
+}
+
+.map-live-wrapper {
+  display: flex;
+  flex-direction: column;
+  flex: 1;
+  min-height: 0;
+  background: #0a0a0f;
+}
+
+.status-bar {
+  padding: 0.4rem 1rem;
+  background: #12121a;
+  border-bottom: 1px solid #2a2a3a;
+  font-size: 0.8rem;
+  min-height: 2rem;
+  display: flex;
+  align-items: center;
+  flex-shrink: 0;
+}
+
+.status-ok      { color: #00d4ff; }
+.status-loading { color: #888; }
+.status-error   { color: #ff4b4b; }
+.refresh-hint   { color: #555; font-style: italic; }
+
+.map-container {
+  flex: 1;
+  min-height: 0;
+  height: 100%;
+
+  /* Styles des points satellites */
+  :global(.sat-dot) {
+    width: 10px;
+    height: 10px;
+    background: #00d4ff;
+    border: 1.5px solid #fff;
+    border-radius: 50%;
+    box-shadow: 0 0 6px #00d4ff99;
+    transition: transform 0.2s;
+
+    &:hover {
+      transform: scale(1.5);
+    }
+  }
+
+  /* Popup satellite */
+  :global(.sat-popup) {
+    font-family: 'Inter', sans-serif;
+    font-size: 0.8rem;
+    color: #e0e0e0;
+    background: #1a1a2e;
+    border-radius: 4px;
+
+    strong {
+      display: block;
+      font-size: 0.9rem;
+      color: #00d4ff;
+      margin-bottom: 0.4rem;
+    }
+
+    table {
+      width: 100%;
+      border-collapse: collapse;
+      margin-bottom: 0.5rem;
+
+      td { padding: 1px 4px; }
+      td:first-child { color: #888; }
+    }
+
+    .popup-btn {
+      display: block;
+      width: 100%;
+      padding: 0.35rem;
+      background: #0066cc;
+      color: #fff;
+      border: none;
+      border-radius: 3px;
+      cursor: pointer;
+      font-size: 0.78rem;
+      text-align: center;
+
+      &:hover { background: #0080ff; }
+    }
+  }
+
+  :global(.leaflet-popup-content-wrapper) {
+    background: #1a1a2e;
+    color: #e0e0e0;
+    border: 1px solid #2a2a4a;
+    border-radius: 6px;
+    box-shadow: 0 4px 16px #0008;
+  }
+
+  :global(.leaflet-popup-tip) {
+    background: #1a1a2e;
+  }
+}
+

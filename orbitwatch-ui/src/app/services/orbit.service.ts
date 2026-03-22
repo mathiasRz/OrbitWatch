@@ -26,6 +26,11 @@ export class OrbitService {
     return this.http.get<SatellitePosition>(`${this.baseUrl}/position`, { params });
   }
 
+  getAllPositions(catalog: string = 'stations'): Observable<SatellitePosition[]> {
+    const params = new HttpParams().set('catalog', catalog);
+    return this.http.get<SatellitePosition[]>(`${this.baseUrl}/positions`, { params });
+  }
+
   getGroundTrack(p: GroundTrackParams): Observable<SatellitePosition[]> {
     let params = new HttpParams()
       .set('name',     p.name)
