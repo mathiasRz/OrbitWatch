@@ -24,7 +24,7 @@ Développer une plateforme web de surveillance spatiale permettant de :
 | 1 | Moteur orbital minimal | Terminé | Orekit 13.1.4, propagation SGP4, API REST, 12 tests unitaires |
 | 2 | Ground track 2D | Terminé | Backend + frontend opérationnels, intégration CelesTrak, carte live multi-satellites |
 | 3 | Détection de rapprochements | Terminé | ConjunctionService + ConjunctionScanJob + BDD (conjunction_alert) + notifications IHM (badge polling 30 s) + page /conjunction + 23 tests |
-| 4 | Analyse d'évolution orbitale | À venir | Suivi paramètres orbitaux (a, e, i, RAAN…), détection de dérive, historique en BDD + anomalies ML (Smile) |
+| 4 | Analyse d'évolution orbitale | En cours | Historique orbital (noradId, paramètres Keplériens), règles métier + Z-score Smile ML, page Profil satellite avec graphes Chart.js, badge anomalies |
 | 5 | Surveillance des débris + 3D | À venir | Heatmap orbitale + globe CesiumJS + assistant RAG v1 (Spring AI) |
 | 6 | Version vitrine / Agent IA | À venir | Agent autonome Spring AI Tool Calling, polish 3D, SSE, export |
 
@@ -146,8 +146,24 @@ Développer une plateforme web de surveillance spatiale permettant de :
 
 
 ---
+### 2026-04-03
+**Milestone 4 — Lancement : Analyse d'évolution orbitale**
+- Plan M4 rédigé dans `plan_milestone4.md`
+- Analyse critique du plan initial (roadmap_ia.md) : cold start problem ignoré, visualisation absente, noms ambigus comme clé, race condition entre jobs
+- Architecture cible révisée :
+  - `OrbitalElementsExtractor` (Orekit, extraction Keplériens + noradId)
+  - `OrbitalHistory` (entité JPA, table `orbital_history`, clé `norad_id`)
+  - `OrbitalHistoryJob` (EventListener sur `TleCatalogRefreshedEvent`, purge TTL configurable)
+  - `AnomalyDetectionService` Phase 1 (règles métier, seuils configurables, zéro cold start) + Phase 2 (Z-score glissant Smile ML, garde `minHistory=30`)
+  - `AnomalyAlert` + `AnomalyScanJob` + `AnomalyController`
+  - Frontend : page `/satellite/:name` (Profil satellite), `OrbitalChartComponent` (Chart.js), badge anomalies combiné
+- Décision : `noradId` comme clé primaire universelle (prerequis RAG M5)
+- Décision : Z-score glissant (Java pur) à la place d'Isolation Forest (risque modules Java 17 + cold start)
+- Décision : règles métier explicites *avant* ML — valeur immédiate sans cold start
+- Feature ajoutée : filtres `Specification` JPA sur `GET /conjunction/alerts` (oubli M3)
+- Feature ajoutée : `GET /satellite/{noradId}/summary` avec champ `textSummary` pour indexation RAG M5
 
-## 6. Notes techniques / astuces
+
 
 - Pour Orekit, initialiser correctement les données via :
 
