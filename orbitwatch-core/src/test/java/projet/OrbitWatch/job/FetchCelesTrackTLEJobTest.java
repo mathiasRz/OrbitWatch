@@ -6,6 +6,7 @@ import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
 import org.mockito.Mock;
 import org.mockito.junit.jupiter.MockitoExtension;
+import org.springframework.context.ApplicationEventPublisher;
 import org.springframework.test.util.ReflectionTestUtils;
 import projet.OrbitWatch.client.CelesTrackClient;
 import projet.OrbitWatch.dto.TleEntry;
@@ -32,6 +33,9 @@ class FetchCelesTrackTLEJobTest {
     private CelesTrackClient celestrackClient;
 
     @Mock
+    private ApplicationEventPublisher eventPublisher;
+
+    @Mock
     private TleService tleService;
 
     private FetchCelesTrackTLEJob job;
@@ -49,7 +53,7 @@ class FetchCelesTrackTLEJobTest {
 
     @BeforeEach
     void setUp() {
-        job = new FetchCelesTrackTLEJob(celestrackClient, tleService);
+        job = new FetchCelesTrackTLEJob(celestrackClient, tleService,eventPublisher);
         // Catalogs par défaut = "stations,active,visual"
         ReflectionTestUtils.setField(job, "catalogsConfig", "stations");
     }

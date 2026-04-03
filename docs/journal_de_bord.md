@@ -181,6 +181,23 @@ Développer une plateforme web de surveillance spatiale permettant de :
 - `refineTca_symmetricParabola_returnsCenter` : test corrigé — avec `d0=d2`, le numérateur `(d0-d2)=0` → `offset=0` → TCA = `tPrev` (pas `tPrev + step` comme le test l'affirmait à tort)
 - Nouveau test `refineTca_asymmetricParabola_tcaInWindow` : valide `offset = 15s` pour `d0=10, d1=4, d2=6`
 
+**Étape 4.3 : `OrbitalHistoryJob` (accumulation via EventListener)**
+
+*Pattern event/listener*
+- `TleCatalogRefreshedEvent` (record, `job/`) : publié par `FetchCelesTrackTLEJob` après chaque catalogue chargé avec succès — `catalogName` + `List<TleEntry>`
+- `FetchCelesTrackTLEJob` modifié : injection `ApplicationEventPublisher`, publication de `TleCatalogRefreshedEvent` après `tleservice.getCatalog().put()` — le fetch reste la seule responsabilité du job
+- Décision d'architecture validée : pattern Event/Listener conservé (vs tout dans `FetchCelesTrackTLEJob`) — extensible pour le RAG M5 qui ajoutera un second `@EventListener` sur le même event sans toucher au fetch
+
+*`OrbitalHistoryJob`*
+- `@EventListener @Async @Transactional` : s'exécute dans un thread séparé, n'impacte pas le scheduler du fetch
+- Itère sur les `TleEntry` de l'event, appelle `OrbitalElementsExtractor.extract()`, persiste via `OrbitalHistoryRepository.save()`
+- Skip silencieux si extraction échoue (TLE malformé) + log `WARN` si taux d'échec > 5% du batch
+- Purge TTL : `deleteByFetchedAtBefore(now - retentionDays)` en fin de batch (configurable via `orbital.history.retention-days=90`)
+- `application.properties` : propriété `orbital.history.retention-days=90` ajoutée
+
+*Tests*
+- `OrbitalHistoryJobTest` : 8 tests Mockito — 3 TLEs → 3 saves, champs snapshot corrects (noradId/nom/Keplériens), TLE malformé → skip sans exception, 2 valides + 1 malformé → 2 saves, liste vide → cold start safe (aucun appel extractor/repository), purge TTL appelée après batch, purge TTL non appelée sur liste vide
+
 
 
 - Pour Orekit, initialiser correctement les données via :

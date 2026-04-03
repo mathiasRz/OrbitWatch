@@ -3,6 +3,7 @@ package projet.OrbitWatch.job;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.beans.factory.annotation.Value;
+import org.springframework.context.ApplicationEventPublisher;
 import org.springframework.scheduling.annotation.Scheduled;
 import org.springframework.stereotype.Component;
 import projet.OrbitWatch.client.CelesTrackClient;
@@ -12,23 +13,27 @@ import projet.OrbitWatch.service.TleService;
 import java.util.Arrays;
 import java.util.List;
 import java.util.concurrent.CopyOnWriteArrayList;
+
 @Component
 public class FetchCelesTrackTLEJob {
 
-	private static final Logger log = LoggerFactory.getLogger(FetchCelesTrackTLEJob.class);
+    private static final Logger log = LoggerFactory.getLogger(FetchCelesTrackTLEJob.class);
 
-	/** Liste des catalogues CelesTrak à charger, séparés par des virgules. */
-  @Value("${tle.celestrak.catalogs:stations,active,visual}")
-  private String catalogsConfig;
+    /** Liste des catalogues CelesTrak à charger, séparés par des virgules. */
+    @Value("${tle.celestrak.catalogs:stations,active,visual}")
+    private String catalogsConfig;
 
-  private final CelesTrackClient celestrackclient;
+    private final CelesTrackClient         celestrackclient;
+    private final TleService               tleservice;
+    private final ApplicationEventPublisher eventPublisher;
 
-	private final TleService tleservice;
-
-	public FetchCelesTrackTLEJob(CelesTrackClient celestrackclient, TleService tleservice) {
-		this.celestrackclient = celestrackclient;
-		this.tleservice = tleservice;
-	}
+    public FetchCelesTrackTLEJob(CelesTrackClient celestrackclient,
+                                  TleService tleservice,
+                                  ApplicationEventPublisher eventPublisher) {
+        this.celestrackclient = celestrackclient;
+        this.tleservice       = tleservice;
+        this.eventPublisher   = eventPublisher;
+    }
 
 
 	/**
@@ -48,9 +53,12 @@ public class FetchCelesTrackTLEJob {
       for (String catalogName : catalogs) {
           try {
               String rawBody = celestrackclient.getCatalog(catalogName);
-              List<TleEntry> entries = tleservice.parseTle3Lines(rawBody, catalogName);
-				      CopyOnWriteArrayList<TleEntry> list = new CopyOnWriteArrayList<>(entries);
-				      tleservice.getCatalog().put(catalogName, list);
+          List<TleEntry> entries = tleservice.parseTle3Lines(rawBody, catalogName);
+              CopyOnWriteArrayList<TleEntry> list = new CopyOnWriteArrayList<>(entries);
+              tleservice.getCatalog().put(catalogName, list);
+
+              // Publier l'event pour OrbitalHistoryJob (async, non bloquant)
+              eventPublisher.publishEvent(new TleCatalogRefreshedEvent(catalogName, entries));
 
               log.info("[TleService] Catalogue '{}' chargé — {} satellites.", catalogName, entries.size());
           } catch (Exception e) {
