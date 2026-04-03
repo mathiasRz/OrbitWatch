@@ -214,12 +214,22 @@ class ConjunctionServiceTest {
     // ═════════════════════════════════════════════════════════════════════════
 
     @Test
-    @DisplayName("refineTca : minimum parfaitement centré → TCA = tPrev + step")
+    @DisplayName("refineTca : parabole symétrique (d0=d2) → offset = 0 → TCA = tPrev")
     void refineTca_symmetricParabola_returnsCenter() {
         var tPrev = java.time.Instant.parse("2026-03-07T12:00:00Z");
-        // d0=10, d1=5, d2=10 → parabole symétrique → offset = step
+        // d0=10, d1=5, d2=10 → numérateur (d0-d2)=0 → offset=0 → TCA = tPrev
         var tca = ConjunctionService.refineTca(tPrev, 60, 10.0, 5.0, 10.0);
-        assertThat(tca).isEqualTo(tPrev.plusSeconds(60));
+        assertThat(tca).isEqualTo(tPrev);
+    }
+
+    @Test
+    @DisplayName("refineTca : minimum décalé vers la droite → TCA entre tPrev et tPrev+2*step")
+    void refineTca_asymmetricParabola_tcaInWindow() {
+        var tPrev = java.time.Instant.parse("2026-03-07T12:00:00Z");
+        // d0=10, d1=4, d2=6 → minimum parabolique entre t et t+step
+        // offset = 60 * (10-6) / (2*(10-8+6)) = 60 * 4 / 16 = 15s
+        var tca = ConjunctionService.refineTca(tPrev, 60, 10.0, 4.0, 6.0);
+        assertThat(tca).isEqualTo(tPrev.plusSeconds(15));
     }
 
     @Test

@@ -163,6 +163,24 @@ Développer une plateforme web de surveillance spatiale permettant de :
 - Feature ajoutée : filtres `Specification` JPA sur `GET /conjunction/alerts` (oubli M3)
 - Feature ajoutée : `GET /satellite/{noradId}/summary` avec champ `textSummary` pour indexation RAG M5
 
+**Milestone 4 — Étapes 4.1 & 4.2 : fondations orbitales**
+
+*Étape 4.1 — `OrbitalElementsExtractor` + `OrbitalElements`*
+- `OrbitalElements` (record DTO, `dto/`) : 11 champs — `noradId`, `satelliteName`, `epochTle`, `semiMajorAxisKm`, `eccentricity`, `inclinationDeg`, `raanDeg`, `argOfPerigeeDeg`, `meanMotionRevDay`, `altitudePerigeeKm`, `altitudeApogeeKm`
+- `OrbitalElementsExtractor` (@Service) : parse les 2 lignes TLE via `org.orekit.propagation.analytical.tle.TLE`, calcule `a = (μ/n²)^(1/3)` (3e loi de Kepler), périgée/apogée via `a*(1±e) - R_Earth`, convertit `epochTle` via `TimeScalesFactory.getUTC()` — zéro nouvelle dépendance Maven (Orekit déjà présent)
+- `OrbitalElementsExtractorTest` : 12 tests unitaires — NORAD ID 25544, `a ≈ 6780 km`, `i ≈ 51.64°`, `e < 0.001`, `altPerigee ∈ [350, 450] km`, RAAN/ω dans `[0°, 360°]`, `n ≈ 15.5 rev/jour`, `apogée ≥ périgée`, TLE malformé → exception, trim des espaces
+
+*Étape 4.2 — `OrbitalHistory` + migration Flyway V2*
+- `OrbitalHistory` (entité JPA, `model/`) : table `orbital_history`, index composite `(norad_id, fetched_at DESC)`, constructeur à 11 paramètres + getters, constructeur JPA protégé
+- `OrbitalHistoryRepository` : 5 méthodes — `findByNoradIdOrderByFetchedAtDesc` (Pageable), `findByNoradIdAndFetchedAtBetweenOrderByFetchedAtAsc`, `countByNoradId`, `deleteByFetchedAtBefore` (purge TTL, `@Modifying @Query`), `findDistinctNoradIds` (`@Query DISTINCT` — prêt pour `AnomalyScanJob`)
+- `V2__create_orbital_history.sql` : migration Flyway PostgreSQL, `CREATE TABLE IF NOT EXISTS`, `BIGSERIAL`, `TIMESTAMPTZ`, `CREATE INDEX IF NOT EXISTS idx_orbital_history_norad_time`
+- `OrbitalHistoryRepositoryTest` : 13 tests `@DataJpaTest` (H2) — save/champs, findByNoradId (isolation satellites, ordre DESC, pagination, inconnu→vide), findByFetchedAtBetween (fenêtre), countByNoradId, deleteByFetchedAtBefore (TTL : 2 supprimés / 0 supprimés), findDistinctNoradIds (2 IDs distincts / table vide)
+- `pom.xml` : ajout `spring-boot-starter-data-jpa-test` (scope test) — `@DataJpaTest` déplacé en Spring Boot 4.x vers `org.springframework.boot.data.jpa.test.autoconfigure`
+
+*Correctif M3 — `ConjunctionServiceTest`*
+- `refineTca_symmetricParabola_returnsCenter` : test corrigé — avec `d0=d2`, le numérateur `(d0-d2)=0` → `offset=0` → TCA = `tPrev` (pas `tPrev + step` comme le test l'affirmait à tort)
+- Nouveau test `refineTca_asymmetricParabola_tcaInWindow` : valide `offset = 15s` pour `d0=10, d1=4, d2=6`
+
 
 
 - Pour Orekit, initialiser correctement les données via :
