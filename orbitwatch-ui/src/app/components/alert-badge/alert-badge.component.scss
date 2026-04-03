@@ -1,0 +1,31 @@
+.badge-btn {
+  position: relative;
+  background: none;
+  border: none;
+  cursor: pointer;
+  padding: 4px 8px;
+  font-size: 1.2rem;
+  line-height: 1;
+}
+
+.bell {
+  display: inline-block;
+}
+
+.badge {
+  position: absolute;
+  top: 0;
+  right: 0;
+  background: #ff3333;
+  color: #fff;
+  border-radius: 50%;
+  font-size: 0.65rem;
+  font-weight: 700;
+  min-width: 16px;
+  height: 16px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 0 3px;
+}
+

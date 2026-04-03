@@ -2,13 +2,25 @@
   <header class="topbar">
     <span class="logo">🛰 OrbitWatch</span>
     <nav class="nav-links">
-      <a routerLink="/map"   routerLinkActive="active">Carte live</a>
-      <a routerLink="/orbit" routerLinkActive="active">Ground track</a>
+      <a routerLink="/map"         routerLinkActive="active">Carte live</a>
+      <a routerLink="/orbit"       routerLinkActive="active">Ground track</a>
+      <a routerLink="/conjunction" routerLinkActive="active">Conjunctions</a>
     </nav>
+    <app-alert-badge (badgeClicked)="openPanel($event)"></app-alert-badge>
   </header>
 
   <div class="content">
-    <app-map-live (satelliteSelected)="onSatelliteSelected($event)" />
+    <app-map-live (satelliteSelected)="onSatelliteSelected($event)"></app-map-live>
   </div>
+
+  @if (panelOpen) {
+    <app-alert-panel
+      [alerts]="panelAlerts"
+      (close)="closePanel()"
+      (alertsChanged)="refreshPanel()">
+    </app-alert-panel>
+  }
 </div>
+
+
 

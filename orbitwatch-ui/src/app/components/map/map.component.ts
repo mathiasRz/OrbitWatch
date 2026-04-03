@@ -4,6 +4,7 @@ import {
 } from '@angular/core';
 import * as L from 'leaflet';
 import { SatellitePosition } from '../../models/satellite-position.model';
+import { splitAtAntimeridian } from '../../utils/antimeridian';
 
 @Component({
   selector: 'app-map',
@@ -16,7 +17,7 @@ export class MapComponent implements AfterViewInit, OnDestroy {
   track = input<SatellitePosition[]>([]);
 
   private map?: L.Map;
-  private polyline?: L.Polyline;
+  private polylines: L.Polyline[] = [];
   private marker?: L.Marker;
 
   constructor() {
@@ -30,7 +31,6 @@ export class MapComponent implements AfterViewInit, OnDestroy {
 
   ngAfterViewInit(): void {
     this.initMap();
-    // Rendre le track initial s'il est déjà disponible
     const t = this.track();
     if (t.length) {
       this.renderTrack(t);
@@ -57,18 +57,23 @@ export class MapComponent implements AfterViewInit, OnDestroy {
   private renderTrack(track: SatellitePosition[]): void {
     if (!this.map) return;
 
-    this.polyline?.remove();
+    this.polylines.forEach(pl => pl.remove());
+    this.polylines = [];
     this.marker?.remove();
 
     if (!track.length) return;
 
-    const latlngs: L.LatLngTuple[] = track.map(p => [p.latitude, p.longitude]);
+    // Découpe robuste à l'anti-méridien avec interpolation
+    const segments = splitAtAntimeridian(track);
 
-    this.polyline = L.polyline(latlngs, {
-      color: '#00d4ff',
-      weight: 2,
-      opacity: 0.85
-    }).addTo(this.map);
+    for (const seg of segments) {
+      const pl = L.polyline(seg, {
+        color: '#00d4ff',
+        weight: 2,
+        opacity: 0.85
+      }).addTo(this.map);
+      this.polylines.push(pl);
+    }
 
     const first = track[0];
     this.marker = L.marker([first.latitude, first.longitude], {
@@ -92,7 +97,10 @@ export class MapComponent implements AfterViewInit, OnDestroy {
     `)
     .addTo(this.map);
 
-    this.map.fitBounds(this.polyline.getBounds(), { padding: [20, 20] });
+    if (this.polylines.length > 0) {
+      const group = L.featureGroup(this.polylines);
+      this.map.fitBounds(group.getBounds(), { padding: [20, 20] });
+    }
   }
 }
 

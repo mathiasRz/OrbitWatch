@@ -1,0 +1,91 @@
+<div class="conjunction-form">
+
+  <!-- Sélecteur de mode -->
+  <div class="mode-switch">
+    <button [class.active]="mode === 'catalogue'" (click)="switchMode('catalogue')">
+      Depuis le catalogue
+    </button>
+    <button [class.active]="mode === 'manuel'" (click)="switchMode('manuel')">
+      TLEs manuels
+    </button>
+  </div>
+
+  <form [formGroup]="form" (ngSubmit)="submit()">
+
+    <!-- Mode catalogue -->
+    <ng-container *ngIf="mode === 'catalogue'">
+      <div class="field-group">
+        <label>Satellite 1</label>
+        <select formControlName="nameSat1">
+          <option value="" disabled>— Sélectionner —</option>
+          <option *ngFor="let name of satelliteNames" [value]="name">{{ name }}</option>
+        </select>
+      </div>
+      <div class="field-group">
+        <label>Satellite 2</label>
+        <select formControlName="nameSat2">
+          <option value="" disabled>— Sélectionner —</option>
+          <option *ngFor="let name of satelliteNames" [value]="name">{{ name }}</option>
+        </select>
+      </div>
+    </ng-container>
+
+    <!-- Mode manuel -->
+    <ng-container *ngIf="mode === 'manuel'">
+      <div class="tle-block">
+        <div class="field-group">
+          <label>Nom satellite 1</label>
+          <input formControlName="nameSat1" placeholder="ISS" />
+        </div>
+        <div class="field-group">
+          <label>TLE ligne 1</label>
+          <input formControlName="tle1Sat1" class="tle-input" placeholder="1 25544U 98067A ..." />
+        </div>
+        <div class="field-group">
+          <label>TLE ligne 2</label>
+          <input formControlName="tle2Sat1" class="tle-input" placeholder="2 25544  51.64 ..." />
+        </div>
+      </div>
+      <div class="tle-block">
+        <div class="field-group">
+          <label>Nom satellite 2</label>
+          <input formControlName="nameSat2" placeholder="CSS (TIANHE)" />
+        </div>
+        <div class="field-group">
+          <label>TLE ligne 1</label>
+          <input formControlName="tle1Sat2" class="tle-input" placeholder="1 48274U 21035A ..." />
+        </div>
+        <div class="field-group">
+          <label>TLE ligne 2</label>
+          <input formControlName="tle2Sat2" class="tle-input" placeholder="2 48274  41.47 ..." />
+        </div>
+      </div>
+    </ng-container>
+
+    <!-- Paramètres avancés -->
+    <div class="advanced-toggle" (click)="showAdvanced = !showAdvanced">
+      {{ showAdvanced ? '▲' : '▼' }} Paramètres avancés
+    </div>
+    <div class="advanced-fields" *ngIf="showAdvanced">
+      <div class="field-row">
+        <div class="field-group">
+          <label>Durée (h)</label>
+          <input type="number" formControlName="durationHours" min="1" max="72" />
+        </div>
+        <div class="field-group">
+          <label>Pas (s)</label>
+          <input type="number" formControlName="stepSeconds" min="10" max="300" />
+        </div>
+        <div class="field-group">
+          <label>Seuil (km)</label>
+          <input type="number" formControlName="thresholdKm" min="0.1" max="200" step="0.1" />
+        </div>
+      </div>
+    </div>
+
+    <button type="submit" class="btn-submit" [disabled]="form.invalid">
+      🔍 Analyser
+    </button>
+  </form>
+</div>
+

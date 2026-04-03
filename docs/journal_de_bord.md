@@ -22,11 +22,11 @@ Développer une plateforme web de surveillance spatiale permettant de :
 | Milestone | Objectif | Statut | Notes |
 |-----------|----------|--------|-------|
 | 1 | Moteur orbital minimal | Terminé | Orekit 13.1.4, propagation SGP4, API REST, 12 tests unitaires |
-| 2 | Ground track 2D | En cours | Backend + frontend opérationnels, intégration CelesTrak |
-| 3 | Détection de rapprochements | En cours | ConjunctionService + ConjunctionScanJob + BDD (conjunction_alert) + notifications IHM (badge polling 30 s) |
-| 4 | Analyse d'évolution orbitale | À venir | Suivi paramètres orbitaux (a, e, i, RAAN…), détection de dérive, historique en BDD |
-| 5 | Surveillance des débris + 3D | À venir | Heatmap orbitale + premier globe CesiumJS (avancé depuis M6), polling → SSE |
-| 6 | Version vitrine | À venir | Polish 3D, animations temps réel, export, rendu final |
+| 2 | Ground track 2D | Terminé | Backend + frontend opérationnels, intégration CelesTrak, carte live multi-satellites |
+| 3 | Détection de rapprochements | Terminé | ConjunctionService + ConjunctionScanJob + BDD (conjunction_alert) + notifications IHM (badge polling 30 s) + page /conjunction + 23 tests |
+| 4 | Analyse d'évolution orbitale | À venir | Suivi paramètres orbitaux (a, e, i, RAAN…), détection de dérive, historique en BDD + anomalies ML (Smile) |
+| 5 | Surveillance des débris + 3D | À venir | Heatmap orbitale + globe CesiumJS + assistant RAG v1 (Spring AI) |
+| 6 | Version vitrine / Agent IA | À venir | Agent autonome Spring AI Tool Calling, polish 3D, SSE, export |
 
 ---
 
@@ -104,12 +104,46 @@ Développer une plateforme web de surveillance spatiale permettant de :
 - `MapPageComponent` : page `/map` avec topbar de navigation, route par défaut
 - `OrbitPageComponent` : lit le query param `?name=` au chargement → lance automatiquement le ground track depuis la carte live ; lien retour "← Carte live"
 
+---
+### 2026-03-26
+** Backend : `ConjunctionService` (logique pure)**
+- Méthode principale : `ConjunctionReport analyze(ConjunctionRequest req)`
+- Boucle temporelle sur `[now, now + durationHours]` par pas de `stepSeconds`
+- À chaque instant : propager les 2 TLEs → positions ECI (x/y/z) → distance euclidienne
+- Détection de minima locaux : `d[i-1] > d[i] < d[i+1]` ET `d[i] < thresholdKm`
+- Raffinement du TCA par interpolation parabolique sur 3 points
+- Retourne la liste des `ConjunctionEvent` triés par distance croissante
+- **Aucune dépendance JPA** dans ce service — logique pure, testable unitairement
 
+**Backend : entité `ConjunctionAlert` + `ConjunctionAlertRepository`**
+- Entité JPA `ConjunctionAlert` avec tous les champs (voir DTOs ci-dessus)
+- `ConjunctionAlertRepository extends JpaRepository<ConjunctionAlert, Long>`
+- Méthode custom : `findByAcknowledgedFalseOrderByTcaAsc()` → pour le badge IHM
+- Méthode de déduplication : `existsByNameSat1AndNameSat2AndTcaBetween()` → éviter de rejouer la même alerte à chaque scan
+---
+### 2026-03-28 - 2026-04-01
+**Milestone 3 — Conjunctions : backend + frontend complets (3.3 → 3.11)**
 
-- Documenter chaque nouvelle fonctionnalité et API  
-- Valider les calculs orbitaux avant visualisation 3D  
-- Noter toutes les anomalies ou incohérences scientifiques rencontrées  
-- Tenir à jour les versions de dépendances scientifiques Orekit / Hipparchus  
+**Backend**
+- `ConjunctionScanJob` : job `@Scheduled` (initialDelay 30 s + toutes les heures), itère sur toutes les paires de satellites du catalogue, appelle `ConjunctionService.analyze()`, déduplique via `existsByNameSat1AndNameSat2AndTcaBetween` (±5 min autour du TCA), persiste les nouvelles alertes — désactivable via `conjunction.scan.enabled=false`
+- `ConjunctionController` : `POST /analyze` (on-demand TLEs bruts), `POST /analyze-by-name` (résolution via `TleService`), `GET /alerts` (page paginée), `GET /alerts/unread` (badge IHM), `PUT /alerts/{id}/ack` (acquittement) 
+
+**Tests backend**
+- `ConjunctionServiceTest` : 11 tests — analyze ISS↔CSS seuil large, tri croissant, fenêtre start<end, seuil nul, même TLE×2, fenêtre trop courte, TCA dans fenêtre, distance positive, `eciDistance` (identique→0, triangle 3-4-5→5), `refineTca` (parabole symétrique, dénominateur nul, clamping)
+- `ConjunctionControllerTest` : 12 tests MockMvc — POST /analyze (200/400/empty/500), POST /analyze-by-name (200/404/400 blank), GET /alerts (200 page/vide), GET /alerts/unread (200/vide), PUT /alerts/{id}/ack (204+save/404)
+
+**Frontend**
+- `conjunction.model.ts` : interfaces `ConjunctionRequest`, `AnalyzeByNameRequest`, `ConjunctionEvent`, `ConjunctionReport`, `ConjunctionAlert`, `AlertPage`
+- `ConjunctionService` (Angular) : `analyze`, `analyzeByName`, `getAlerts`, `getUnreadAlerts`, `acknowledge`
+- `AlertBadgeComponent` : polling 30 s sur `/alerts/unread`, badge rouge avec compteur, émet `(badgeClicked)` avec la liste des alertes
+- `AlertPanelComponent` : drawer latéral, liste des alertes avec code couleur (rouge <1 km / orange 1–5 km / jaune >5 km), boutons "Voir sur carte" et "Acquitter"
+- `ConjunctionFormComponent` : mode catalogue (saisie nom → résolution serveur) + mode manuel (TLEs bruts), paramètres avancés (durée/pas/seuil) en accordéon, pré-remplissage depuis query params
+- `ConjunctionMapComponent` : carte Leaflet, deux polylines colorées (cyan/orange), marqueur sur le TCA le plus proche avec popup détaillé
+- `ConjunctionPageComponent` : page `/conjunction`, layout sidebar+carte, orchestration formulaire→résultats+carte, badge + panneau intégrés
+- `MapPageComponent` : badge + panneau d'alertes ajoutés, lien "Conjunctions" dans la navbar
+- `app.routes.ts` : route `/conjunction` ajoutée
+- Toute la syntaxe de flux de contrôle Angular moderne (`@if`, `@for`) — pas de `*ngIf`/`*ngFor`
+
 
 ---
 

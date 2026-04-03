@@ -1,0 +1,28 @@
+<div class="panel-overlay" (click)="close.emit()"></div>
+<aside class="panel">
+  <header class="panel-header">
+    <span>⚠ Alertes de rapprochement</span>
+    <button class="close-btn" (click)="close.emit()">✕</button>
+  </header>
+
+  <div class="panel-body">
+    @if (alerts.length === 0) {
+      <p class="empty">Aucun rapprochement critique détecté.</p>
+    }
+
+    @for (a of alerts; track a.id) {
+      <div class="alert-card {{ severityClass(a.distanceKm) }}">
+        <div class="alert-header">
+          <span class="sat-names">{{ a.nameSat1 }} ↔ {{ a.nameSat2 }}</span>
+          <span class="distance">{{ a.distanceKm | number:'1.1-1' }} km</span>
+        </div>
+        <div class="alert-tca">TCA : {{ a.tca | date:'dd/MM/yyyy HH:mm:ss' : 'UTC' }} UTC</div>
+        <div class="alert-actions">
+          <button class="btn-see" (click)="openConjunction(a)">Voir sur carte</button>
+          <button class="btn-ack" (click)="ackAlert(a)">Acquitter</button>
+        </div>
+      </div>
+    }
+  </div>
+</aside>
+

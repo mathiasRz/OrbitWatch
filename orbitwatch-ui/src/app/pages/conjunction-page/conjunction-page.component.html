@@ -1,0 +1,77 @@
+<div class="conj-page">
+
+  <!-- Topbar -->
+  <header class="topbar">
+    <span class="logo">🛰 OrbitWatch</span>
+    <nav class="nav-links">
+      <a routerLink="/map"         routerLinkActive="active">Carte live</a>
+      <a routerLink="/orbit"       routerLinkActive="active">Ground track</a>
+      <a routerLink="/conjunction" routerLinkActive="active">Conjunctions</a>
+    </nav>
+    <app-alert-badge (badgeClicked)="openPanel($event)"></app-alert-badge>
+  </header>
+
+  <!-- Contenu principal -->
+  <div class="content">
+
+    <!-- Colonne gauche : formulaire -->
+    <aside class="sidebar">
+      <h2 class="section-title">Analyse de rapprochement</h2>
+      <app-conjunction-form
+        (reportReady)="onReportReady($event)"
+        (loading)="onLoading($event)"
+        (errorMsg)="onError($event)">
+      </app-conjunction-form>
+
+      @if (isLoading) {
+        <div class="state-msg"><span class="spinner">⏳</span> Analyse en cours…</div>
+      }
+      @if (errorMessage) {
+        <div class="state-msg error">⚠ {{ errorMessage }}</div>
+      }
+
+      @if (report && !isLoading) {
+        <div class="result-panel">
+          <h3 class="result-title">{{ report.nameSat1 }} ↔ {{ report.nameSat2 }}</h3>
+          <p class="result-meta">
+            Seuil : {{ report.thresholdKm }} km &bull;
+            Fenêtre : {{ report.windowStart | date:'dd/MM HH:mm' : 'UTC' }}
+            → {{ report.windowEnd | date:'dd/MM HH:mm' : 'UTC' }} UTC
+          </p>
+          @if (report.events.length === 0) {
+            <p class="no-event">✅ Aucun rapprochement critique détecté sur cette fenêtre.</p>
+          }
+          @for (ev of report.events; track ev.tca; let i = $index) {
+            <div class="event-card {{ severityClass(ev.distanceKm) }}">
+              <span class="ev-index">#{{ i + 1 }}</span>
+              <span class="ev-dist">{{ ev.distanceKm | number:'1.3-3' }} km</span>
+              <span class="ev-tca">{{ ev.tca | date:'dd/MM HH:mm:ss' : 'UTC' }} UTC</span>
+            </div>
+          }
+        </div>
+      }
+    </aside>
+
+    <!-- Colonne droite : carte -->
+    <main class="map-area">
+      @if (!report) {
+        <div class="map-placeholder">🛰 Lancez une analyse pour visualiser les trajectoires</div>
+      }
+      @if (report) {
+        <app-conjunction-map [report]="report"></app-conjunction-map>
+      }
+    </main>
+
+  </div>
+
+  <!-- Panneau latéral alertes -->
+  @if (panelOpen) {
+    <app-alert-panel
+      [alerts]="panelAlerts"
+      (close)="closePanel()"
+      (alertsChanged)="refreshPanel()">
+    </app-alert-panel>
+  }
+
+</div>
+
