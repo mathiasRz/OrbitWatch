@@ -7,6 +7,7 @@ import org.slf4j.LoggerFactory;
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.PageRequest;
 import org.springframework.data.domain.Sort;
+import org.springframework.data.jpa.domain.Specification;
 import org.springframework.http.ResponseEntity;
 import org.springframework.validation.annotation.Validated;
 import org.springframework.web.bind.annotation.*;
@@ -15,9 +16,11 @@ import projet.OrbitWatch.dto.ConjunctionRequest;
 import projet.OrbitWatch.dto.TleEntry;
 import projet.OrbitWatch.model.ConjunctionAlert;
 import projet.OrbitWatch.repository.ConjunctionAlertRepository;
+import projet.OrbitWatch.repository.ConjunctionSpecification;
 import projet.OrbitWatch.service.ConjunctionService;
 import projet.OrbitWatch.service.TleService;
 
+import java.time.Instant;
 import java.util.List;
 
 /**
@@ -90,17 +93,29 @@ public class ConjunctionController {
     // ─────────────────────────────────────────────────────────────────────────
 
     /**
-     * Liste paginée de toutes les alertes, triée par TCA décroissant.
+     * Liste paginée des alertes avec filtres optionnels, triée par TCA décroissant.
      *
-     * GET /api/v1/conjunction/alerts?page=0&size=20
+     * <p>GET /api/v1/conjunction/alerts?page=0&size=20&sat=ISS&from=2026-01-01T00:00:00Z&to=2026-12-31T23:59:59Z&maxKm=5
+     *
+     * @param page   numéro de page (défaut : 0)
+     * @param size   taille de page (défaut : 20)
+     * @param sat    fragment de nom de satellite (filtre LIKE insensible à la casse)
+     * @param from   borne inférieure du TCA (ISO-8601, optionnel)
+     * @param to     borne supérieure du TCA (ISO-8601, optionnel)
+     * @param maxKm  distance maximale en km (optionnel)
      */
     @GetMapping("/alerts")
     public ResponseEntity<Page<ConjunctionAlert>> getAlerts(
             @RequestParam(defaultValue = "0")  int page,
-            @RequestParam(defaultValue = "20") int size) {
+            @RequestParam(defaultValue = "20") int size,
+            @RequestParam(required = false)    String sat,
+            @RequestParam(required = false) Instant from,
+            @RequestParam(required = false)    Instant to,
+            @RequestParam(required = false)    Double maxKm) {
 
+        Specification<ConjunctionAlert> spec = ConjunctionSpecification.build(sat, from, to, maxKm);
         Page<ConjunctionAlert> result = repository.findAll(
-                PageRequest.of(page, size, Sort.by(Sort.Direction.DESC, "tca")));
+                spec, PageRequest.of(page, size, Sort.by(Sort.Direction.DESC, "tca")));
         return ResponseEntity.ok(result);
     }
 

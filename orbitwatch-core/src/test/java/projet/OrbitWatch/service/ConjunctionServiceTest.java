@@ -1,6 +1,7 @@
 package projet.OrbitWatch.service;
 
 import org.junit.jupiter.api.*;
+import org.mockito.Mockito;
 import org.orekit.data.DataContext;
 import org.orekit.data.DataProvidersManager;
 import org.orekit.data.DirectoryCrawler;
@@ -8,18 +9,16 @@ import org.springframework.core.io.ClassPathResource;
 import projet.OrbitWatch.dto.ConjunctionEvent;
 import projet.OrbitWatch.dto.ConjunctionReport;
 import projet.OrbitWatch.dto.ConjunctionRequest;
+import projet.OrbitWatch.dto.SatellitePosition;
 
 import java.io.File;
+import java.time.Instant;
+import java.util.ArrayList;
 import java.util.List;
 
 import static org.assertj.core.api.Assertions.*;
+import static org.mockito.ArgumentMatchers.*;
 
-/**
- * Tests unitaires du ConjunctionService.
- *
- * Orekit est initialisé une seule fois via @BeforeAll.
- * On utilise des TLEs ISS et CSS (Tiangong) réels pour valider les comportements.
- */
 @TestInstance(TestInstance.Lifecycle.PER_CLASS)
 class ConjunctionServiceTest {
 
@@ -29,13 +28,18 @@ class ConjunctionServiceTest {
     private static final String ISS_LINE2 =
             "2 25544  51.6400 200.0000 0003000  60.0000 300.1476 15.49560000999999";
 
-    // ── TLE CSS (Tiangong) ────────────────────────────────────────────────────
+    // ── TLE CSS (fictif, réutilisé dans les tests qui passent par SGP4) ───────
     private static final String CSS_LINE1 =
-            "1 48274U 21035A   26066.50000000  .00015000  00000+0  17000-3 0  9993";
+            "1 48274U 21035A   26066.50000000  .00020000  00000+0  35000-3 0  9990";
     private static final String CSS_LINE2 =
-            "2 48274  41.4700 175.0000 0005000  80.0000 280.0000 15.60000000999999";
+            "2 48274  51.6400 290.0000 0003000  60.0000 300.1476 15.49560000999999";
 
+    /** Service réel branché sur la propagation SGP4 — pour les tests structurels. */
     private ConjunctionService service;
+
+    /** Service avec PropagationService mocké — pour les tests comportementaux déterministes. */
+    private ConjunctionService serviceWithMock;
+    private PropagationService mockPropagation;
 
     @BeforeAll
     void initOrekit() throws Exception {
@@ -47,23 +51,57 @@ class ConjunctionServiceTest {
 
     @BeforeEach
     void setUp() {
-        service = new ConjunctionService(new PropagationService());
+        service          = new ConjunctionService(new PropagationService());
+        mockPropagation  = Mockito.mock(PropagationService.class);
+        serviceWithMock  = new ConjunctionService(mockPropagation);
+    }
+
+    // ─────────────────────────────────────────────────────────────────────────
+    // Helpers — génération de trajectoires synthétiques
+    // ─────────────────────────────────────────────────────────────────────────
+
+    /**
+     * Génère une trajectoire synthétique de {@code n} points.
+     * Sat1 se déplace le long de l'axe X, sat2 commence loin puis se rapproche
+     * jusqu'à un minimum à l'indice {@code minIdx}, puis s'éloigne.
+     * Distance au minimum = {@code minDistKm}.
+     */
+    private List<SatellitePosition> trackWithMinimum(
+            String name, int n, int minIdx, double minDistKm, boolean isSat2) {
+
+        Instant t0 = Instant.now();  // aligné sur windowStart = Instant.now() dans analyze()
+        List<SatellitePosition> track = new ArrayList<>();
+        for (int i = 0; i < n; i++) {
+            double x = isSat2 ? minDistKm + Math.abs(i - minIdx) * 10.0 : 0.0;
+            track.add(new SatellitePosition(name, t0.plusSeconds(i * 60L),
+                    0, 0, 400, x, 0.0, 0.0));
+        }
+        return track;
     }
 
     // ═════════════════════════════════════════════════════════════════════════
-    // analyze() — comportements généraux
+    // analyze() — comportements généraux (PropagationService mocké)
     // ═════════════════════════════════════════════════════════════════════════
 
     @Test
-    @DisplayName("analyze : ISS vs CSS avec seuil large (500 km) → au moins un événement détecté")
+    @DisplayName("analyze : trajectoires synthétiques avec minimum garanti → au moins un événement détecté")
     void analyze_issVsCss_withLargeThreshold_detectsEvents() {
+        // sat1 : fixe à l'origine | sat2 : distance = 5 km au step 5, sinon >> 500 km
+        int n = 10, minIdx = 5;
+        List<SatellitePosition> track1 = trackWithMinimum("ISS", n, minIdx, 0.0,  false);
+        List<SatellitePosition> track2 = trackWithMinimum("CSS", n, minIdx, 5.0,  true);
+
+        Mockito.when(mockPropagation.groundTrack(anyString(), anyString(), eq("ISS"),
+                any(), anyInt(), anyInt())).thenReturn(track1);
+        Mockito.when(mockPropagation.groundTrack(anyString(), anyString(), eq("CSS"),
+                any(), anyInt(), anyInt())).thenReturn(track2);
+
         ConjunctionRequest req = new ConjunctionRequest(
                 "ISS", ISS_LINE1, ISS_LINE2,
                 "CSS", CSS_LINE1, CSS_LINE2,
-                24.0, 60, 500.0
-        );
+                24.0, 60, 500.0);
 
-        ConjunctionReport report = service.analyze(req);
+        ConjunctionReport report = serviceWithMock.analyze(req);
 
         assertThat(report).isNotNull();
         assertThat(report.nameSat1()).isEqualTo("ISS");
@@ -75,18 +113,25 @@ class ConjunctionServiceTest {
     @Test
     @DisplayName("analyze : résultat trié par distance croissante")
     void analyze_eventsSortedByDistanceAscending() {
-        ConjunctionRequest req = new ConjunctionRequest(
-                "ISS", ISS_LINE1, ISS_LINE2,
-                "CSS", CSS_LINE1, CSS_LINE2,
-                24.0, 60, 500.0
-        );
+        int n = 12;
+        Instant t0 = Instant.now();
+        List<SatellitePosition> track1 = new ArrayList<>();
+        List<SatellitePosition> track2 = new ArrayList<>();
+        double[] dist = {100, 50, 20, 3, 20, 50, 20, 8, 20, 50, 100, 200};
+        for (int i = 0; i < n; i++) {
+            track1.add(new SatellitePosition("ISS", t0.plusSeconds(i * 60L), 0, 0, 400, 0.0, 0.0, 0.0));
+            track2.add(new SatellitePosition("CSS", t0.plusSeconds(i * 60L), 0, 0, 400, dist[i], 0.0, 0.0));
+        }
+        Mockito.when(mockPropagation.groundTrack(anyString(), anyString(), eq("ISS"),
+                any(), anyInt(), anyInt())).thenReturn(track1);
+        Mockito.when(mockPropagation.groundTrack(anyString(), anyString(), eq("CSS"),
+                any(), anyInt(), anyInt())).thenReturn(track2);
 
-        ConjunctionReport report = service.analyze(req);
+        ConjunctionReport report = serviceWithMock.analyze(new ConjunctionRequest(
+                "ISS", ISS_LINE1, ISS_LINE2, "CSS", CSS_LINE1, CSS_LINE2, 24.0, 60, 500.0));
 
         List<Double> distances = report.events().stream()
-                .map(ConjunctionEvent::distanceKm)
-                .toList();
-
+                .map(ConjunctionEvent::distanceKm).toList();
         for (int i = 0; i < distances.size() - 1; i++) {
             assertThat(distances.get(i)).isLessThanOrEqualTo(distances.get(i + 1));
         }
@@ -95,13 +140,17 @@ class ConjunctionServiceTest {
     @Test
     @DisplayName("analyze : windowStart < windowEnd dans le rapport")
     void analyze_windowStartBeforeWindowEnd() {
-        ConjunctionRequest req = new ConjunctionRequest(
-                "ISS", ISS_LINE1, ISS_LINE2,
-                "CSS", CSS_LINE1, CSS_LINE2,
-                12.0, 120, 500.0
-        );
+        int n = 5;
+        Instant t0 = Instant.now();
+        List<SatellitePosition> flat = new ArrayList<>();
+        for (int i = 0; i < n; i++) {
+            flat.add(new SatellitePosition("X", t0.plusSeconds(i * 60L), 0, 0, 400, 1000.0, 0.0, 0.0));
+        }
+        Mockito.when(mockPropagation.groundTrack(anyString(), anyString(), anyString(),
+                any(), anyInt(), anyInt())).thenReturn(flat);
 
-        ConjunctionReport report = service.analyze(req);
+        ConjunctionReport report = serviceWithMock.analyze(new ConjunctionRequest(
+                "ISS", ISS_LINE1, ISS_LINE2, "CSS", CSS_LINE1, CSS_LINE2, 12.0, 120, 500.0));
 
         assertThat(report.windowStart()).isBefore(report.windowEnd());
     }
@@ -109,20 +158,22 @@ class ConjunctionServiceTest {
     @Test
     @DisplayName("analyze : seuil 0 km → aucun événement (sauf chevauchement exact)")
     void analyze_zeroThreshold_noEvents() {
+        // Utilise ISS vs lui-même avec seuil infime — distance constante = 0,
+        // jamais de minimum local strict → liste vide
         ConjunctionRequest req = new ConjunctionRequest(
-                "ISS", ISS_LINE1, ISS_LINE2,
-                "CSS", CSS_LINE1, CSS_LINE2,
+                "ISS-A", ISS_LINE1, ISS_LINE2,
+                "ISS-B", ISS_LINE1, ISS_LINE2,
                 24.0, 60, 0.001
         );
 
         ConjunctionReport report = service.analyze(req);
 
-        // ISS et CSS sont sur des orbites distinctes, distance minimale >> 0.001 km
+        // Même orbite → distance constante ~0, pas de minimum local strict détecté
         assertThat(report.events()).isEmpty();
     }
 
     @Test
-    @DisplayName("analyze : même TLE × 2 avec seuil 0 km → distance = 0, TCA détecté à t=0")
+    @DisplayName("analyze : même TLE × 2 avec seuil 1 km → distance ~0, jamais de minimum local")
     void analyze_sameTleTwice_zeroDistance() {
         ConjunctionRequest req = new ConjunctionRequest(
                 "ISS-A", ISS_LINE1, ISS_LINE2,
@@ -132,8 +183,7 @@ class ConjunctionServiceTest {
 
         ConjunctionReport report = service.analyze(req);
 
-        // Même orbite → distance constante = 0 → pas de minimum local strict (d[i-1] > d[i] < d[i+1] jamais vrai)
-        // Sauf variation numérique — le résultat doit être cohérent (vide ou distance ~0)
+        // Même orbite → distance constante = 0 → pas de minimum local strict
         report.events().forEach(e ->
                 assertThat(e.distanceKm()).isLessThan(1.0));
     }
@@ -156,13 +206,16 @@ class ConjunctionServiceTest {
     @Test
     @DisplayName("analyze : chaque événement a un TCA entre windowStart et windowEnd")
     void analyze_tcaWithinWindow() {
-        ConjunctionRequest req = new ConjunctionRequest(
-                "ISS", ISS_LINE1, ISS_LINE2,
-                "CSS", CSS_LINE1, CSS_LINE2,
-                24.0, 60, 500.0
-        );
+        int n = 10, minIdx = 5;
+        List<SatellitePosition> track1 = trackWithMinimum("ISS", n, minIdx, 0.0, false);
+        List<SatellitePosition> track2 = trackWithMinimum("CSS", n, minIdx, 5.0, true);
+        Mockito.when(mockPropagation.groundTrack(anyString(), anyString(), eq("ISS"),
+                any(), anyInt(), anyInt())).thenReturn(track1);
+        Mockito.when(mockPropagation.groundTrack(anyString(), anyString(), eq("CSS"),
+                any(), anyInt(), anyInt())).thenReturn(track2);
 
-        ConjunctionReport report = service.analyze(req);
+        ConjunctionReport report = serviceWithMock.analyze(new ConjunctionRequest(
+                "ISS", ISS_LINE1, ISS_LINE2, "CSS", CSS_LINE1, CSS_LINE2, 24.0, 60, 500.0));
 
         report.events().forEach(e -> {
             assertThat(e.tca()).isAfterOrEqualTo(report.windowStart());
@@ -173,13 +226,16 @@ class ConjunctionServiceTest {
     @Test
     @DisplayName("analyze : chaque événement a une distanceKm positive")
     void analyze_distanceAlwaysPositive() {
-        ConjunctionRequest req = new ConjunctionRequest(
-                "ISS", ISS_LINE1, ISS_LINE2,
-                "CSS", CSS_LINE1, CSS_LINE2,
-                24.0, 60, 500.0
-        );
+        int n = 10, minIdx = 5;
+        List<SatellitePosition> track1 = trackWithMinimum("ISS", n, minIdx, 0.0, false);
+        List<SatellitePosition> track2 = trackWithMinimum("CSS", n, minIdx, 5.0, true);
+        Mockito.when(mockPropagation.groundTrack(anyString(), anyString(), eq("ISS"),
+                any(), anyInt(), anyInt())).thenReturn(track1);
+        Mockito.when(mockPropagation.groundTrack(anyString(), anyString(), eq("CSS"),
+                any(), anyInt(), anyInt())).thenReturn(track2);
 
-        ConjunctionReport report = service.analyze(req);
+        ConjunctionReport report = serviceWithMock.analyze(new ConjunctionRequest(
+                "ISS", ISS_LINE1, ISS_LINE2, "CSS", CSS_LINE1, CSS_LINE2, 24.0, 60, 500.0));
 
         report.events().forEach(e ->
                 assertThat(e.distanceKm()).isGreaterThanOrEqualTo(0.0));

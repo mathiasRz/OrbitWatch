@@ -1,6 +1,7 @@
 package projet.OrbitWatch.repository;
 
 import org.springframework.data.jpa.repository.JpaRepository;
+import org.springframework.data.jpa.repository.JpaSpecificationExecutor;
 import org.springframework.stereotype.Repository;
 import projet.OrbitWatch.model.ConjunctionAlert;
 
@@ -11,7 +12,8 @@ import java.util.List;
  * Repository JPA pour les alertes de rapprochement.
  */
 @Repository
-public interface ConjunctionAlertRepository extends JpaRepository<ConjunctionAlert, Long> {
+public interface ConjunctionAlertRepository extends JpaRepository<ConjunctionAlert, Long>,
+        JpaSpecificationExecutor<ConjunctionAlert> {
 
     /**
      * Alertes non acquittées, triées par TCA croissant — utilisé pour le badge IHM.

@@ -6,6 +6,7 @@ import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.webmvc.test.autoconfigure.WebMvcTest;
 import org.springframework.data.domain.PageImpl;
 import org.springframework.data.domain.Pageable;
+import org.springframework.data.jpa.domain.Specification;
 import org.springframework.http.MediaType;
 import org.springframework.test.context.bean.override.mockito.MockitoBean;
 import org.springframework.test.web.servlet.MockMvc;
@@ -24,7 +25,6 @@ import java.util.Optional;
 
 import static org.hamcrest.Matchers.*;
 import static org.mockito.ArgumentMatchers.any;
-import static org.mockito.ArgumentMatchers.anyList;
 import static org.mockito.Mockito.*;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.*;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.*;
@@ -191,7 +191,7 @@ class ConjunctionControllerTest {
     void getAlerts_returns200WithPage() throws Exception {
         ConjunctionAlert alert = new ConjunctionAlert(
                 "ISS", "CSS", NOW, 3.5, 45.0, 10.0, 410.0, 40.0, 15.0, 390.0);
-        when(repository.findAll(org.mockito.ArgumentMatchers.any(Pageable.class)))
+        when(repository.findAll(any(Specification.class), any(Pageable.class)))
                 .thenReturn(new PageImpl<>(List.of(alert)));
 
         mockMvc.perform(get("/api/v1/conjunction/alerts"))
@@ -204,12 +204,70 @@ class ConjunctionControllerTest {
     @Test
     @DisplayName("GET /alerts : liste vide → 200 avec page vide")
     void getAlerts_emptyList_returns200() throws Exception {
-        when(repository.findAll(org.mockito.ArgumentMatchers.any(Pageable.class)))
+        when(repository.findAll(any(Specification.class), any(Pageable.class)))
                 .thenReturn(new PageImpl<>(List.of()));
 
         mockMvc.perform(get("/api/v1/conjunction/alerts"))
                 .andExpect(status().isOk())
                 .andExpect(jsonPath("$.content", hasSize(0)));
+    }
+
+    @Test
+    @DisplayName("GET /alerts?sat=ISS : filtre par nom de satellite → 200 avec résultats filtrés")
+    void getAlerts_filterBySat_returns200() throws Exception {
+        ConjunctionAlert issAlert = new ConjunctionAlert(
+                "ISS (ZARYA)", "CSS", NOW, 3.5, 45.0, 10.0, 410.0, 40.0, 15.0, 390.0);
+        when(repository.findAll(any(Specification.class), any(Pageable.class)))
+                .thenReturn(new PageImpl<>(List.of(issAlert)));
+
+        mockMvc.perform(get("/api/v1/conjunction/alerts").param("sat", "ISS"))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.content", hasSize(1)))
+                .andExpect(jsonPath("$.content[0].nameSat1", is("ISS (ZARYA)")));
+    }
+
+    @Test
+    @DisplayName("GET /alerts?maxKm=5 : filtre par distance maximale → 200 avec résultats filtrés")
+    void getAlerts_filterByMaxKm_returns200() throws Exception {
+        ConjunctionAlert closeAlert = new ConjunctionAlert(
+                "ISS", "CSS", NOW, 2.1, 45.0, 10.0, 410.0, 40.0, 15.0, 390.0);
+        when(repository.findAll(any(Specification.class), any(Pageable.class)))
+                .thenReturn(new PageImpl<>(List.of(closeAlert)));
+
+        mockMvc.perform(get("/api/v1/conjunction/alerts").param("maxKm", "5.0"))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.content", hasSize(1)))
+                .andExpect(jsonPath("$.content[0].distanceKm", is(2.1)));
+    }
+
+    @Test
+    @DisplayName("GET /alerts?sat=ISS&maxKm=5 : filtres combinés sat + maxKm → 200")
+    void getAlerts_filterBySatAndMaxKm_returns200() throws Exception {
+        ConjunctionAlert alert = new ConjunctionAlert(
+                "ISS (ZARYA)", "CSS", NOW, 3.5, 45.0, 10.0, 410.0, 40.0, 15.0, 390.0);
+        when(repository.findAll(any(Specification.class), any(Pageable.class)))
+                .thenReturn(new PageImpl<>(List.of(alert)));
+
+        mockMvc.perform(get("/api/v1/conjunction/alerts")
+                        .param("sat", "ISS")
+                        .param("maxKm", "5.0"))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.content", hasSize(1)));
+    }
+
+    @Test
+    @DisplayName("GET /alerts?from=...&to=... : filtre par fenêtre temporelle → 200")
+    void getAlerts_filterByDateRange_returns200() throws Exception {
+        ConjunctionAlert alert = new ConjunctionAlert(
+                "ISS", "CSS", NOW, 3.5, 45.0, 10.0, 410.0, 40.0, 15.0, 390.0);
+        when(repository.findAll(any(Specification.class), any(Pageable.class)))
+                .thenReturn(new PageImpl<>(List.of(alert)));
+
+        mockMvc.perform(get("/api/v1/conjunction/alerts")
+                        .param("from", "2026-01-01T00:00:00Z")
+                        .param("to",   "2026-12-31T23:59:59Z"))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.content", hasSize(1)));
     }
 
     // ─────────────────────────────────────────────────────────────────────────

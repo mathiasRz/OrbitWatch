@@ -198,7 +198,53 @@ Développer une plateforme web de surveillance spatiale permettant de :
 *Tests*
 - `OrbitalHistoryJobTest` : 8 tests Mockito — 3 TLEs → 3 saves, champs snapshot corrects (noradId/nom/Keplériens), TLE malformé → skip sans exception, 2 valides + 1 malformé → 2 saves, liste vide → cold start safe (aucun appel extractor/repository), purge TTL appelée après batch, purge TTL non appelée sur liste vide
 
+---
 
+**Étape 4.4 : `OrbitalHistoryController` + endpoints REST**
+
+*DTO `SatelliteSummary`*
+- Record DTO (`dto/`) : `noradId`, `name`, `tleLine1`, `tleLine2`, `tleEpoch`, `tleAgeHours`, `latestElements: OrbitalElements`, `recentConjunctions: List<ConjunctionAlert>`, `textSummary: String`
+- Champ `textSummary` intentionnellement en langage naturel — prerequis RAG M5 (sera indexé dans PgVector par `OrbitWatchRagService`)
+
+*`OrbitalHistoryController`*
+- `GET /api/v1/orbital-history/{noradId}?days=30` → `List<OrbitalElements>` (fenêtre glissante, clampage 1–365 jours)
+- `GET /api/v1/orbital-history/{noradId}/latest` → `OrbitalElements` ou **404** si aucun snapshot
+- `GET /api/v1/satellite/{noradId}/summary` → `SatelliteSummary` (TLE courant en mémoire + dernier snapshot + conjunctions filtrées par nom + textSummary avec warning TLE obsolète si > 168 h) ou **404**
+- `GET /api/v1/orbital-history/{noradId}/export` → CSV téléchargeable (`Content-Disposition: attachment`), en-tête + une ligne par snapshot
+
+---
+
+**Étape 4.5 : filtres `Specification` JPA sur `GET /conjunction/alerts`**
+
+*`ConjunctionSpecification`* (nouveau, `repository/`)
+- Factory statique `build(sat, from, to, maxKm)` → `Specification<ConjunctionAlert>`
+- `sat` : LIKE insensible à la casse sur `nameSat1` OU `nameSat2`
+- `from` / `to` : bornes sur le champ `tca` (ISO-8601)
+- `maxKm` : borne supérieure sur `distanceKm`
+- Tous critères optionnels, combinés en ET logique
+
+*`ConjunctionAlertRepository`* (modifié)
+- Ajout de `JpaSpecificationExecutor<ConjunctionAlert>`
+
+*`ConjunctionController.getAlerts()`* (modifié)
+- 4 nouveaux `@RequestParam` optionnels : `sat`, `from` (Instant), `to` (Instant), `maxKm` (Double)
+- `repository.findAll(spec, pageable)` au lieu de `findAll(pageable)`
+
+*`ConjunctionControllerTest`* (modifié + étendu)
+- 2 tests existants mis à jour pour `findAll(Specification, Pageable)`
+- 4 nouveaux tests : filtre `sat`, `maxKm`, combiné `sat+maxKm`, fenêtre temporelle `from+to`
+
+---
+
+**Correctif `ConjunctionServiceTest` (stabilisation)**
+- Refactorisation complète : les tests `analyze_*` ne dépendent plus de la propagation SGP4 réelle avec des TLEs CSS fictifs dont la géométrie n'était pas maîtrisée
+- Introduction de `serviceWithMock` (PropagationService mocké Mockito) + helper `trackWithMinimum()` générant des trajectoires ECI synthétiques déterministes avec un minimum garanti
+- `trackWithMinimum()` utilise `Instant.now()` comme `t0` pour s'aligner sur `windowStart = Instant.now()` calculé dans `analyze()` — évite les échecs temporels
+- Tests SGP4 réels conservés uniquement pour les cas géométriquement triviaux : `zeroThreshold` et `sameTleTwice` (ISS vs ISS-B, distance constante = 0)
+
+---
+
+## Notes techniques
 
 - Pour Orekit, initialiser correctement les données via :
 
@@ -212,3 +258,4 @@ public class OrekitInitializer {
         manager.addProvider(new DirectoryCrawler(orekitData));
     }
 }
+```
