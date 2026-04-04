@@ -199,7 +199,7 @@ Développer une plateforme web de surveillance spatiale permettant de :
 - `OrbitalHistoryJobTest` : 8 tests Mockito — 3 TLEs → 3 saves, champs snapshot corrects (noradId/nom/Keplériens), TLE malformé → skip sans exception, 2 valides + 1 malformé → 2 saves, liste vide → cold start safe (aucun appel extractor/repository), purge TTL appelée après batch, purge TTL non appelée sur liste vide
 
 ---
-
+### 2026-04-04
 **Étape 4.4 : `OrbitalHistoryController` + endpoints REST**
 
 *DTO `SatelliteSummary`*
@@ -235,7 +235,6 @@ Développer une plateforme web de surveillance spatiale permettant de :
 - 4 nouveaux tests : filtre `sat`, `maxKm`, combiné `sat+maxKm`, fenêtre temporelle `from+to`
 
 ---
-
 **Correctif `ConjunctionServiceTest` (stabilisation)**
 - Refactorisation complète : les tests `analyze_*` ne dépendent plus de la propagation SGP4 réelle avec des TLEs CSS fictifs dont la géométrie n'était pas maîtrisée
 - Introduction de `serviceWithMock` (PropagationService mocké Mockito) + helper `trackWithMinimum()` générant des trajectoires ECI synthétiques déterministes avec un minimum garanti
@@ -243,6 +242,59 @@ Développer une plateforme web de surveillance spatiale permettant de :
 - Tests SGP4 réels conservés uniquement pour les cas géométriquement triviaux : `zeroThreshold` et `sameTleTwice` (ISS vs ISS-B, distance constante = 0)
 
 ---
+### 2026-04-06
+**Étapes 4.6 & 4.7 : `AnomalyDetectionService` Phase 1 (règles métier) + Phase 2 (Z-score)**
+
+*Modèle*
+- `AnomalyType` (enum) : `ALTITUDE_CHANGE`, `INCLINATION_CHANGE`, `RAAN_DRIFT`, `ECCENTRICITY_CHANGE`, `STATISTICAL`
+- `AnomalySeverity` (enum) : `LOW` (ratio < 2), `MEDIUM` (ratio < 5), `HIGH` (ratio ≥ 5)
+- `AnomalyAlert` (entité JPA, table `anomaly_alert`) : `noradId`, `satelliteName`, `detectedAt`, `type`, `severity`, `description`, `acknowledged` — index `(norad_id, type, detected_at DESC)`
+- `V3__create_anomaly_alert.sql` : migration Flyway `CREATE TABLE IF NOT EXISTS anomaly_alert` + index
+
+*`AnomalyDetectionService`*
+- Phase 1 `detectRuleBased(noradId)` : récupère les 2 derniers snapshots, calcule les deltas périgée/apogée/inclinaison/RAAN/excentricité, compare aux seuils configurables (`anomaly.threshold.*`), retourne les alertes sans persister — cold start safe (< 2 snapshots → liste vide)
+- Gestion du saut circulaire RAAN (360°→0°)
+- Phase 2 `detectZScore(noradId, windowSize)` : Z-score glissant Java pur (`mean` + `stddev` boucles simples, zéro BLAS), skip si `countByNoradId < anomaly.ml.min-history` (défaut : 30), analyse uniquement le point le plus récent — série constante (`stddev < 1e-10`) → liste vide sans exception
+- Utilitaires statiques `mean()`, `stddev()`, `severity()` — package-visible pour les tests
+- `pom.xml` : ajout `smile-core 3.1.1` + `maven-surefire-plugin` avec `--add-opens java.base/java.lang=ALL-UNNAMED`
+- `application.properties` : 6 nouvelles propriétés `anomaly.threshold.*` et `anomaly.ml.*`
+
+*`AnomalyDetectionServiceTest`* (20 tests Mockito purs)
+- Phase 1 : cold start (0/1 snapshot), ALTITUDE_CHANGE périgée et apogée, INCLINATION_CHANGE, RAAN_DRIFT, ECCENTRICITY_CHANGE, aucune anomalie, anomalies multiples simultanées, sévérité LOW/HIGH
+- Phase 2 : cold start (< minHistory), outlier Z-score > 3.0 → STATISTICAL détecté, série normale → vide, série constante → vide sans exception
+- Utilitaires : `mean`, `stddev`, `severity` LOW/MEDIUM/HIGH
+
+---
+
+**Étape 4.8 : `AnomalyScanJob` + `AnomalyController`**
+
+*`AnomalyScanJob`*
+- `@Scheduled(fixedDelayString = "${anomaly.scan.delay-ms:3600000}")` + `@ConditionalOnProperty(anomaly.scan.enabled, matchIfMissing = true)`
+- Itère sur `findDistinctNoradIds()` (orbital_history), appelle `detectRuleBased()` + `detectZScore()` pour chaque satellite
+- Déduplication via fenêtre ±6h : `existsByNoradIdAndTypeAndDetectedAtAfter()` — évite de rejouer la même alerte
+- Méthode `persist()` package-visible (testable) — log `WARN` par nouvelle alerte persistée
+- Cold start safe : table vide → log `INFO`, aucun appel au service de détection
+
+*`AnomalyAlertRepository`* (mis à jour)
+- Ajout `JpaSpecificationExecutor<AnomalyAlert>`
+
+*`AnomalySpecification`* (nouveau, `repository/`)
+- Factory `build(noradId, type, severity, from, to)` → `Specification<AnomalyAlert>`, tous critères optionnels
+
+*`AnomalyController`*
+- `GET /api/v1/anomaly/alerts` : paginé + 5 filtres optionnels (noradId, type, severity, from, to)
+- `GET /api/v1/anomaly/alerts/unread` → `List<AnomalyAlert>` (badge IHM)
+- `PUT /api/v1/anomaly/alerts/{id}/ack` → 204 / 404
+
+*`application-test.properties`* : `anomaly.scan.enabled=false`
+
+*Tests*
+- `AnomalyControllerTest` : 8 tests MockMvc — GET alertes (200/vide/filtre noradId/filtre type+severity), GET unread (200/vide), PUT ack (204/404)
+- `AnomalyScanJobTest` : 9 tests Mockito — `scan()` (cold start, 1 save, dédupliqué, 2 satellites, règle+zscore) + `persist()` (vide, nouveau, dupliqué, 2 alertes dont 1 dupliquée)
+
+---
+
+
 
 ## Notes techniques
 

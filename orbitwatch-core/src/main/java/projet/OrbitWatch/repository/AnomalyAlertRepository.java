@@ -1,6 +1,7 @@
 package projet.OrbitWatch.repository;
 
 import org.springframework.data.jpa.repository.JpaRepository;
+import org.springframework.data.jpa.repository.JpaSpecificationExecutor;
 import org.springframework.data.jpa.repository.Query;
 import org.springframework.stereotype.Repository;
 import projet.OrbitWatch.model.AnomalyAlert;
@@ -13,7 +14,8 @@ import java.util.List;
  * Repository JPA pour les alertes d'anomalies orbitales.
  */
 @Repository
-public interface AnomalyAlertRepository extends JpaRepository<AnomalyAlert, Long> {
+public interface AnomalyAlertRepository extends JpaRepository<AnomalyAlert, Long>,
+        JpaSpecificationExecutor<AnomalyAlert> {
 
     /**
      * Alertes non acquittées, triées par date de détection décroissante
