@@ -1,0 +1,151 @@
+<div class="profile-page">
+
+  <!-- Topbar -->
+  <header class="topbar">
+    <span class="logo">🛰 OrbitWatch</span>
+    <nav class="nav-links">
+      <a routerLink="/map"         routerLinkActive="active">Carte live</a>
+      <a routerLink="/orbit"       routerLinkActive="active">Ground track</a>
+      <a routerLink="/conjunction" routerLinkActive="active">Conjunctions</a>
+    </nav>
+    <app-alert-badge (badgeClicked)="openPanel($any($event))"></app-alert-badge>
+  </header>
+
+  <div class="content">
+
+    <!-- Chargement -->
+    @if (isLoading) {
+      <div class="state-msg">⏳ Chargement du profil satellite…</div>
+    }
+
+    <!-- Erreur -->
+    @if (!isLoading && errorMsg) {
+      <div class="state-msg error">⚠ {{ errorMsg }}</div>
+    }
+
+    @if (!isLoading && summary) {
+
+      <!-- Header satellite -->
+      <section class="sat-header">
+        <div class="sat-title">
+          <h1>{{ summary.name }}</h1>
+          <span class="norad-badge">NORAD {{ summary.noradId }}</span>
+          @if (tleAgeWarning) {
+            <span class="tle-warning" title="TLE ancienne — propagation potentiellement inexacte">
+              ⚠ TLE {{ summary.tleAgeHours | number:'1.0-0' }} h
+            </span>
+          }
+        </div>
+        <div class="sat-meta">
+          <span>Époque TLE : {{ summary.tleEpoch | date:'dd/MM/yyyy HH:mm' : 'UTC' }} UTC</span>
+          <span>Âge TLE : {{ summary.tleAgeHours | number:'1.1-1' }} h</span>
+        </div>
+        <div class="sat-actions">
+          <button class="btn-csv" (click)="exportCsv()">⬇ Exporter CSV</button>
+          <a class="btn-track" [routerLink]="['/orbit']" [queryParams]="{ name: summary.name }">
+            🛤 Ground track
+          </a>
+        </div>
+      </section>
+
+      <!-- Éléments orbitaux courants -->
+      @if (summary.latestElements) {
+        <section class="card">
+          <h2 class="section-title">Éléments Keplériens (dernier snapshot)</h2>
+          <div class="kep-grid">
+            <div class="kep-item">
+              <span class="kep-label">Demi-grand axe</span>
+              <span class="kep-value">{{ summary.latestElements.semiMajorAxisKm | number:'1.1-1' }} km</span>
+            </div>
+            <div class="kep-item">
+              <span class="kep-label">Périgée</span>
+              <span class="kep-value">{{ summary.latestElements.altitudePerigeeKm | number:'1.1-1' }} km</span>
+            </div>
+            <div class="kep-item">
+              <span class="kep-label">Apogée</span>
+              <span class="kep-value">{{ summary.latestElements.altitudeApogeeKm | number:'1.1-1' }} km</span>
+            </div>
+            <div class="kep-item">
+              <span class="kep-label">Inclinaison</span>
+              <span class="kep-value">{{ summary.latestElements.inclinationDeg | number:'1.3-3' }}°</span>
+            </div>
+            <div class="kep-item">
+              <span class="kep-label">RAAN Ω</span>
+              <span class="kep-value">{{ summary.latestElements.raanDeg | number:'1.2-2' }}°</span>
+            </div>
+            <div class="kep-item">
+              <span class="kep-label">Excentricité</span>
+              <span class="kep-value">{{ summary.latestElements.eccentricity | number:'1.6-6' }}</span>
+            </div>
+            <div class="kep-item">
+              <span class="kep-label">Mouvement moyen</span>
+              <span class="kep-value">{{ summary.latestElements.meanMotionRevDay | number:'1.4-4' }} rev/j</span>
+            </div>
+          </div>
+        </section>
+      }
+
+      <!-- Graphes historique -->
+      @if (history.length > 0) {
+        <section class="card">
+          <h2 class="section-title">Historique orbital (30 jours — {{ history.length }} snapshots)</h2>
+          <app-orbital-chart [history]="history"></app-orbital-chart>
+        </section>
+      } @else {
+        <section class="card">
+          <h2 class="section-title">Historique orbital</h2>
+          <p class="empty-msg">Aucun historique disponible — les données s'accumulent à chaque fetch TLE (toutes les 6 h).</p>
+        </section>
+      }
+
+      <!-- Anomalies récentes -->
+      <section class="card">
+        <h2 class="section-title">Anomalies détectées</h2>
+        @if (anomalies.length === 0) {
+          <p class="empty-msg">Aucune anomalie détectée pour ce satellite.</p>
+        }
+        @for (a of anomalies; track a.id) {
+          <div class="anomaly-card {{ severityClass(a.severity) }}">
+            <div class="anomaly-header">
+              <span class="anomaly-type">{{ anomalyTypeLabel(a.type) }}</span>
+              <span class="anomaly-severity {{ severityClass(a.severity) }}">{{ a.severity }}</span>
+            </div>
+            <p class="anomaly-desc">{{ a.description }}</p>
+            <span class="anomaly-date">{{ a.detectedAt | date:'dd/MM/yyyy HH:mm' : 'UTC' }} UTC</span>
+          </div>
+        }
+      </section>
+
+      <!-- Conjunctions récentes -->
+      <section class="card">
+        <h2 class="section-title">Rapprochements récents</h2>
+        @if (summary.recentConjunctions.length === 0) {
+          <p class="empty-msg">Aucun rapprochement détecté pour ce satellite.</p>
+        }
+        @for (c of summary.recentConjunctions; track c.id) {
+          <div class="conj-card" [class.ack]="c.acknowledged">
+            <div class="conj-header">
+              <span class="conj-sats">{{ c.nameSat1 }} ↔ {{ c.nameSat2 }}</span>
+              <span class="conj-dist">{{ c.distanceKm | number:'1.1-1' }} km</span>
+            </div>
+            <span class="conj-tca">TCA : {{ c.tca | date:'dd/MM/yyyy HH:mm:ss' : 'UTC' }} UTC</span>
+            <button class="btn-conj"
+              (click)="openConjunction(c.nameSat1, c.nameSat2)">
+              Voir conjunction
+            </button>
+          </div>
+        }
+      </section>
+
+    }
+  </div>
+
+  @if (panelOpen) {
+    <app-alert-panel
+      [alerts]="panelAlerts"
+      (close)="closePanel()">
+    </app-alert-panel>
+  }
+</div>
+
+

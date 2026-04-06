@@ -294,6 +294,49 @@ Développer une plateforme web de surveillance spatiale permettant de :
 
 ---
 
+### 2026-04-06 (suite)
+**Étape 4.9 : `spring-ai-bom` dans `pom.xml`**
+
+- Version retenue : **Spring AI 2.0.0-M4** — seule version du projet Spring AI qui cible Spring Boot 4.x / Spring Framework 7.x (les versions 1.x ciblent Boot 3.x)
+- Disponible sur Maven Central (pas de dépôt milestone supplémentaire nécessaire)
+- Ajout d'une propriété `<spring-ai.version>2.0.0-M4</spring-ai.version>` dans `<properties>`
+- Ajout d'un bloc `<dependencyManagement>` avec `spring-ai-bom` en `scope=import` / `type=pom`
+- Aucun starter Spring AI n'est activé à ce stade — le BOM est présent uniquement pour la détection préventive des conflits avec Smile 3.1.1 et les dépendances existantes
+
+---
+
+### 2026-04-06 (suite)
+**Étapes 4.10 & 4.11 : Frontend — Page Profil satellite + Badge anomalies**
+
+*Dépendance installée*
+- `chart.js` ajouté (`npm install chart.js`) — utilisé directement sans ng2-charts (compatible Angular 21 standalone)
+
+*Nouveaux fichiers*
+- `satellite.model.ts` : interfaces `OrbitalElements`, `SatelliteSummary`, `ConjunctionAlertRef`, `AnomalyAlert`, `AnomalyType`, `AnomalySeverity`, `AnomalyAlertPage`
+- `orbital-history.service.ts` : `getHistory()`, `getLatest()`, `getSummary()`, `getSummaryByName()`, `exportCsv()`
+- `anomaly.service.ts` : `getAlerts()`, `getUnreadAlerts()`, `acknowledge()`
+- `OrbitalChartComponent` : 4 graphes Chart.js (altitude périgée/apogée, inclinaison, RAAN, excentricité) — canvases toujours dans le DOM (CSS `display:none` au lieu de `@if` pour éviter les problèmes Chart.js), accordéon pour RAAN/excentricité
+- `SatelliteProfilePageComponent` (route `/satellite/:noradId` et `/satellite/byname/:name`) :
+  - Mode noradId direct (depuis AlertPanel → bouton "Voir profil")
+  - Mode résolution par nom (depuis carte live popup → bouton "Profil")
+  - Layout : header (nom, NORAD ID, badge âge TLE > 7j), éléments Keplériens, graphes historique, anomalies récentes, conjunctions récentes
+  - Bouton "Exporter CSV" → téléchargement via `Blob`
+  - Bouton "Ground track" → `/orbit?name=`
+
+*Backend — endpoint ajouté*
+- `GET /api/v1/satellite/byname/{name}/summary` : résout le nom via `TleService.resolveUniqueTle()`, extrait le noradId, délègue à `getSummary(noradId)` — retourne 404 si inconnu, 409 si ambigu
+
+*Map live — popup mise à jour*
+- Bouton "Profil" ajouté dans chaque popup Leaflet → navigue vers `/satellite/byname/:name`
+
+*Étape 4.11 — Badge combiné + Panel à onglets*
+- `AlertBadgeComponent` étendu : polling combiné `combineLatest([conjunction/unread, anomaly/unread])` — badge affiche la somme ; émet `CombinedAlerts { conjunctions, anomalies }`
+- `AlertPanelComponent` étendu : onglets "Rapprochements" / "Anomalies" avec badges individuels, acquittement des anomalies via `AnomalyService`, bouton "Voir profil" sur chaque anomalie
+- `MapPageComponent`, `ConjunctionPageComponent`, `SatelliteProfilePageComponent` : mis à jour pour `CombinedAlerts` (rétro-compatibilité `ConjunctionAlert[]` conservée via setter)
+- `app.routes.ts` : routes `satellite/byname/:name` (statique, AVANT) + `satellite/:noradId` (paramétrique)
+
+---
+
 
 
 ## Notes techniques

@@ -8,10 +8,9 @@ import { CommonModule, DatePipe, DecimalPipe } from '@angular/common';
 import { RouterLink, RouterLinkActive } from '@angular/router';
 import { ConjunctionFormComponent } from '../../components/conjunction-form/conjunction-form.component';
 import { ConjunctionMapComponent } from '../../components/conjunction-map/conjunction-map.component';
-import { AlertBadgeComponent } from '../../components/alert-badge/alert-badge.component';
+import { AlertBadgeComponent, CombinedAlerts } from '../../components/alert-badge/alert-badge.component';
 import { AlertPanelComponent } from '../../components/alert-panel/alert-panel.component';
-import { ConjunctionAlert, ConjunctionReport } from '../../models/conjunction.model';
-import { ConjunctionService } from '../../services/conjunction.service';
+import { ConjunctionReport } from '../../models/conjunction.model';
 
 @Component({
   selector: 'app-conjunction-page',
@@ -34,13 +33,12 @@ import { ConjunctionService } from '../../services/conjunction.service';
 export class ConjunctionPageComponent {
 
   report: ConjunctionReport | null = null;
-  isLoading   = false;
+  isLoading    = false;
   errorMessage: string | null = null;
-  panelOpen   = false;
-  panelAlerts: ConjunctionAlert[] = [];
+  panelOpen    = false;
+  panelAlerts: CombinedAlerts = { conjunctions: [], anomalies: [] };
 
-  private readonly cdr                = inject(ChangeDetectorRef);
-  private readonly conjunctionService = inject(ConjunctionService);
+  private readonly cdr = inject(ChangeDetectorRef);
 
   onReportReady(report: ConjunctionReport): void {
     this.report = report;
@@ -57,7 +55,7 @@ export class ConjunctionPageComponent {
     this.cdr.markForCheck();
   }
 
-  openPanel(alerts: ConjunctionAlert[]): void {
+  openPanel(alerts: CombinedAlerts): void {
     this.panelAlerts = alerts;
     this.panelOpen   = true;
     this.cdr.markForCheck();
@@ -66,13 +64,6 @@ export class ConjunctionPageComponent {
   closePanel(): void {
     this.panelOpen = false;
     this.cdr.markForCheck();
-  }
-
-  refreshPanel(): void {
-    this.conjunctionService.getUnreadAlerts().subscribe(alerts => {
-      this.panelAlerts = alerts;
-      this.cdr.markForCheck();
-    });
   }
 
   severityClass(distanceKm: number): string {

@@ -1,4 +1,4 @@
-<button class="badge-btn" (click)="badgeClicked.emit(unreadAlerts)" title="Alertes de rapprochement">
+<button class="badge-btn" (click)="onClick()" title="Alertes (rapprochements + anomalies)">
   <span class="bell">🔔</span>
   @if (count > 0) {
     <span class="badge">{{ count }}</span>

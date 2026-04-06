@@ -1,0 +1,41 @@
+<div class="charts-wrapper">
+
+  <div class="chart-block">
+    <h3 class="chart-title">Altitude périgée / apogée</h3>
+    <div class="chart-container">
+      <canvas #altChart></canvas>
+    </div>
+  </div>
+
+  <div class="chart-block">
+    <h3 class="chart-title">Inclinaison orbitale</h3>
+    <div class="chart-container">
+      <canvas #incChart></canvas>
+    </div>
+  </div>
+
+  <!-- Accordéon — paramètres secondaires -->
+  <!-- Les canvases sont TOUJOURS dans le DOM (Chart.js en a besoin) — on cache via CSS -->
+  <div class="accordion">
+    <button class="accordion-toggle" (click)="extraOpen = !extraOpen">
+      {{ extraOpen ? '▲' : '▼' }} Paramètres secondaires (RAAN, excentricité)
+    </button>
+    <div class="accordion-body" [style.display]="extraOpen ? 'flex' : 'none'">
+      <div class="chart-block">
+        <h3 class="chart-title">RAAN Ω (°)</h3>
+        <div class="chart-container">
+          <canvas #raanChart></canvas>
+        </div>
+      </div>
+      <div class="chart-block">
+        <h3 class="chart-title">Excentricité</h3>
+        <div class="chart-container">
+          <canvas #eccChart></canvas>
+        </div>
+      </div>
+    </div>
+  </div>
+
+</div>
+
+

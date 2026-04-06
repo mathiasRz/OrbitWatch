@@ -6,7 +6,7 @@
       <a routerLink="/orbit"       routerLinkActive="active">Ground track</a>
       <a routerLink="/conjunction" routerLinkActive="active">Conjunctions</a>
     </nav>
-    <app-alert-badge (badgeClicked)="openPanel($event)"></app-alert-badge>
+    <app-alert-badge (badgeClicked)="openPanel($any($event))"></app-alert-badge>
   </header>
 
   <div class="content">
@@ -16,8 +16,7 @@
   @if (panelOpen) {
     <app-alert-panel
       [alerts]="panelAlerts"
-      (close)="closePanel()"
-      (alertsChanged)="refreshPanel()">
+      (close)="closePanel()">
     </app-alert-panel>
   }
 </div>

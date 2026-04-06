@@ -40,6 +40,53 @@
   &:hover { color: #fff; }
 }
 
+/* Onglets */
+.tabs {
+  display: flex;
+  border-bottom: 1px solid #2a2a3a;
+}
+
+.tab {
+  flex: 1;
+  background: none;
+  border: none;
+  border-bottom: 2px solid transparent;
+  padding: 0.6rem 0.5rem;
+  color: #888;
+  font-size: 0.8rem;
+  font-weight: 500;
+  cursor: pointer;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 6px;
+  transition: color 0.2s, border-color 0.2s;
+
+  &.active {
+    color: #00d4ff;
+    border-bottom-color: #00d4ff;
+  }
+
+  &:hover:not(.active) { color: #ccc; }
+}
+
+.tab-badge {
+  background: #ff3333;
+  color: #fff;
+  border-radius: 10px;
+  font-size: 0.65rem;
+  font-weight: 700;
+  min-width: 16px;
+  height: 16px;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  padding: 0 4px;
+
+  &.anomaly { background: #ff9900; }
+}
+
+/* Corps */
 .panel-body {
   overflow-y: auto;
   flex: 1;
@@ -72,13 +119,15 @@
   margin-bottom: 4px;
 }
 
-.sat-names { font-weight: 600; color: #e0e0e0; font-size: 0.85rem; }
-.distance  { font-weight: 700; color: #00d4ff; font-size: 0.9rem; }
-.alert-tca { font-size: 0.75rem; color: #888; margin-bottom: 8px; }
+.sat-names         { font-weight: 600; color: #e0e0e0; font-size: 0.85rem; }
+.distance          { font-weight: 700; color: #00d4ff; font-size: 0.9rem; }
+.anomaly-type-label{ font-weight: 600; color: #ff9900; font-size: 0.8rem; }
+.alert-tca         { font-size: 0.75rem; color: #888; margin-bottom: 4px; }
 
 .alert-actions {
   display: flex;
   gap: 0.5rem;
+  margin-top: 6px;
 }
 
 .btn-see,

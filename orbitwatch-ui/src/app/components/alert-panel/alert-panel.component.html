@@ -1,28 +1,65 @@
 <div class="panel-overlay" (click)="close.emit()"></div>
 <aside class="panel">
   <header class="panel-header">
-    <span>⚠ Alertes de rapprochement</span>
+    <span>⚠ Alertes</span>
     <button class="close-btn" (click)="close.emit()">✕</button>
   </header>
 
+  <!-- Onglets -->
+  <div class="tabs">
+    <button class="tab" [class.active]="activeTab === 'conjunctions'" (click)="activeTab = 'conjunctions'">
+      Rapprochements
+      @if (conjunctionCount > 0) { <span class="tab-badge">{{ conjunctionCount }}</span> }
+    </button>
+    <button class="tab" [class.active]="activeTab === 'anomalies'" (click)="activeTab = 'anomalies'">
+      Anomalies
+      @if (anomalyCount > 0) { <span class="tab-badge anomaly">{{ anomalyCount }}</span> }
+    </button>
+  </div>
+
   <div class="panel-body">
-    @if (alerts.length === 0) {
-      <p class="empty">Aucun rapprochement critique détecté.</p>
+
+    <!-- Onglet Conjunctions -->
+    @if (activeTab === 'conjunctions') {
+      @if (_conjunctions.length === 0) {
+        <p class="empty">Aucun rapprochement critique détecté.</p>
+      }
+      @for (a of _conjunctions; track a.id) {
+        <div class="alert-card {{ conjSeverityClass(a.distanceKm) }}">
+          <div class="alert-header">
+            <span class="sat-names">{{ a.nameSat1 }} ↔ {{ a.nameSat2 }}</span>
+            <span class="distance">{{ a.distanceKm | number:'1.1-1' }} km</span>
+          </div>
+          <div class="alert-tca">TCA : {{ a.tca | date:'dd/MM/yyyy HH:mm:ss' : 'UTC' }} UTC</div>
+          <div class="alert-actions">
+            <button class="btn-see" (click)="openConjunction(a)">Voir sur carte</button>
+            <button class="btn-ack" (click)="ackConjunction(a)">Acquitter</button>
+          </div>
+        </div>
+      }
     }
 
-    @for (a of alerts; track a.id) {
-      <div class="alert-card {{ severityClass(a.distanceKm) }}">
-        <div class="alert-header">
-          <span class="sat-names">{{ a.nameSat1 }} ↔ {{ a.nameSat2 }}</span>
-          <span class="distance">{{ a.distanceKm | number:'1.1-1' }} km</span>
+    <!-- Onglet Anomalies -->
+    @if (activeTab === 'anomalies') {
+      @if (_anomalies.length === 0) {
+        <p class="empty">Aucune anomalie détectée.</p>
+      }
+      @for (a of _anomalies; track a.id) {
+        <div class="alert-card {{ anomalySeverityClass(a.severity) }}">
+          <div class="alert-header">
+            <span class="sat-names">{{ a.satelliteName }}</span>
+            <span class="distance anomaly-type-label">{{ anomalyTypeLabel(a.type) }}</span>
+          </div>
+          <div class="alert-tca">{{ a.description }}</div>
+          <div class="alert-tca">Détecté : {{ a.detectedAt | date:'dd/MM/yyyy HH:mm' : 'UTC' }} UTC</div>
+          <div class="alert-actions">
+            <button class="btn-see" (click)="openSatelliteProfile(a.noradId)">Voir profil</button>
+            <button class="btn-ack" (click)="ackAnomaly(a)">Acquitter</button>
+          </div>
         </div>
-        <div class="alert-tca">TCA : {{ a.tca | date:'dd/MM/yyyy HH:mm:ss' : 'UTC' }} UTC</div>
-        <div class="alert-actions">
-          <button class="btn-see" (click)="openConjunction(a)">Voir sur carte</button>
-          <button class="btn-ack" (click)="ackAlert(a)">Acquitter</button>
-        </div>
-      </div>
+      }
     }
+
   </div>
 </aside>
 

@@ -126,6 +126,7 @@ export class MapLiveComponent implements AfterViewInit, OnDestroy {
   }
 
   private buildPopup(sat: SatellitePosition): string {
+    const safeName = sat.name.replace(/\s/g, '_');
     return `
       <div class="sat-popup">
         <strong>${sat.name}</strong>
@@ -135,18 +136,27 @@ export class MapLiveComponent implements AfterViewInit, OnDestroy {
           <tr><td>Alt</td><td>${sat.altitude.toFixed(1)} km</td></tr>
           <tr><td>Epoch</td><td>${new Date(sat.epoch).toUTCString()}</td></tr>
         </table>
-        <button class="popup-btn" id="track-btn-${sat.name.replace(/\s/g, '_')}">
-          🛤 Voir ground track
-        </button>
+        <div style="display:flex;gap:6px;margin-top:6px;">
+          <button class="popup-btn" id="track-btn-${safeName}">
+            Ground track
+          </button>
+          <button class="popup-btn popup-btn-profile" id="profile-btn-${safeName}">
+            Profil
+          </button>
+        </div>
       </div>
     `;
   }
 
   private onPopupOpen(sat: SatellitePosition, marker: L.Marker): void {
     setTimeout(() => {
-      const btnId = `track-btn-${sat.name.replace(/\s/g, '_')}`;
-      document.getElementById(btnId)?.addEventListener('click', () => {
+      const safeName  = sat.name.replace(/\s/g, '_');
+      document.getElementById(`track-btn-${safeName}`)?.addEventListener('click', () => {
         this.satelliteSelected.emit(sat.name);
+        marker.closePopup();
+      });
+      document.getElementById(`profile-btn-${safeName}`)?.addEventListener('click', () => {
+        this.router.navigate(['/satellite', 'byname', sat.name]);
         marker.closePopup();
       });
     }, 50);

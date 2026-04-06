@@ -1,0 +1,264 @@
+.profile-page {
+  display: flex;
+  flex-direction: column;
+  min-height: 100vh;
+  background: #0a0a0f;
+  font-family: 'Inter', sans-serif;
+  color: #e0e0e0;
+}
+
+/* Topbar */
+.topbar {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 0 1.5rem;
+  height: 48px;
+  background: #12121a;
+  border-bottom: 1px solid #2a2a3a;
+  flex-shrink: 0;
+}
+
+.logo {
+  font-size: 1.1rem;
+  font-weight: 700;
+  color: #00d4ff;
+}
+
+.nav-links {
+  display: flex;
+  gap: 1.5rem;
+
+  a {
+    color: #888;
+    text-decoration: none;
+    font-size: 0.85rem;
+    transition: color 0.2s;
+    &:hover, &.active { color: #00d4ff; }
+  }
+}
+
+/* Content */
+.content {
+  max-width: 900px;
+  margin: 0 auto;
+  padding: 2rem 1.5rem;
+  width: 100%;
+  display: flex;
+  flex-direction: column;
+  gap: 1.5rem;
+}
+
+.state-msg {
+  text-align: center;
+  padding: 3rem;
+  color: #888;
+  font-size: 0.9rem;
+
+  &.error { color: #ff5252; }
+}
+
+/* Satellite header */
+.sat-header {
+  display: flex;
+  flex-direction: column;
+  gap: 0.5rem;
+}
+
+.sat-title {
+  display: flex;
+  align-items: center;
+  gap: 0.75rem;
+  flex-wrap: wrap;
+
+  h1 {
+    font-size: 1.4rem;
+    font-weight: 700;
+    color: #fff;
+    margin: 0;
+  }
+}
+
+.norad-badge {
+  background: #1a3a5c;
+  color: #00d4ff;
+  border-radius: 4px;
+  padding: 2px 8px;
+  font-size: 0.75rem;
+  font-weight: 600;
+}
+
+.tle-warning {
+  background: rgba(255, 220, 0, 0.15);
+  color: #ffdc00;
+  border: 1px solid #ffdc00;
+  border-radius: 4px;
+  padding: 2px 8px;
+  font-size: 0.75rem;
+  font-weight: 600;
+}
+
+.sat-meta {
+  display: flex;
+  gap: 2rem;
+  font-size: 0.8rem;
+  color: #888;
+}
+
+.sat-actions {
+  display: flex;
+  gap: 0.75rem;
+  margin-top: 0.25rem;
+}
+
+.btn-csv {
+  background: #1a2a1a;
+  border: 1px solid #2a5c2a;
+  color: #69f0ae;
+  border-radius: 4px;
+  padding: 5px 12px;
+  font-size: 0.8rem;
+  cursor: pointer;
+  transition: background 0.2s;
+  &:hover { background: #223322; }
+}
+
+.btn-track {
+  background: #1a2a3a;
+  border: 1px solid #1a3a5c;
+  color: #00d4ff;
+  border-radius: 4px;
+  padding: 5px 12px;
+  font-size: 0.8rem;
+  cursor: pointer;
+  text-decoration: none;
+  transition: background 0.2s;
+  &:hover { background: #1e3a50; }
+}
+
+/* Cards */
+.card {
+  background: #12121a;
+  border: 1px solid #2a2a3a;
+  border-radius: 10px;
+  padding: 1.25rem;
+}
+
+.section-title {
+  font-size: 0.8rem;
+  font-weight: 600;
+  color: #888;
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+  margin: 0 0 1rem;
+}
+
+/* Keplerian grid */
+.kep-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(160px, 1fr));
+  gap: 0.75rem;
+}
+
+.kep-item {
+  background: #0a0a0f;
+  border: 1px solid #2a2a3a;
+  border-radius: 6px;
+  padding: 0.6rem 0.8rem;
+  display: flex;
+  flex-direction: column;
+  gap: 0.2rem;
+}
+
+.kep-label {
+  font-size: 0.7rem;
+  color: #666;
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+}
+
+.kep-value {
+  font-size: 0.95rem;
+  font-weight: 600;
+  color: #00d4ff;
+  font-variant-numeric: tabular-nums;
+}
+
+.empty-msg {
+  color: #666;
+  font-size: 0.85rem;
+  text-align: center;
+  padding: 1.5rem 0;
+}
+
+/* Anomalies */
+.anomaly-card {
+  border-radius: 6px;
+  padding: 0.65rem 0.9rem;
+  border-left: 3px solid;
+  margin-bottom: 0.5rem;
+
+  &.critical { background: rgba(255,50,50,0.08);  border-color: #ff3232; }
+  &.warning  { background: rgba(255,160,0,0.08);  border-color: #ffa000; }
+  &.caution  { background: rgba(255,220,0,0.08);  border-color: #ffdc00; }
+}
+
+.anomaly-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin-bottom: 4px;
+}
+
+.anomaly-type {
+  font-weight: 600;
+  font-size: 0.82rem;
+  color: #e0e0e0;
+}
+
+.anomaly-severity {
+  font-size: 0.7rem;
+  font-weight: 700;
+  border-radius: 3px;
+  padding: 1px 6px;
+
+  &.critical { background: rgba(255,50,50,0.2);  color: #ff5252; }
+  &.warning  { background: rgba(255,160,0,0.2);  color: #ffa000; }
+  &.caution  { background: rgba(255,220,0,0.2);  color: #ffdc00; }
+}
+
+.anomaly-desc { font-size: 0.8rem; color: #c0c0c0; margin: 0 0 4px; }
+.anomaly-date { font-size: 0.72rem; color: #666; }
+
+/* Conjunctions */
+.conj-card {
+  border-radius: 6px;
+  padding: 0.65rem 0.9rem;
+  border-left: 3px solid #00d4ff;
+  background: rgba(0,212,255,0.05);
+  margin-bottom: 0.5rem;
+
+  &.ack { opacity: 0.5; }
+}
+
+.conj-header {
+  display: flex;
+  justify-content: space-between;
+  margin-bottom: 4px;
+}
+
+.conj-sats { font-weight: 600; font-size: 0.83rem; }
+.conj-dist { font-weight: 700; color: #00d4ff; font-size: 0.88rem; }
+.conj-tca  { font-size: 0.72rem; color: #888; display: block; margin-bottom: 6px; }
+
+.btn-conj {
+  background: #1a3a5c;
+  border: none;
+  color: #00d4ff;
+  border-radius: 4px;
+  padding: 3px 10px;
+  font-size: 0.75rem;
+  cursor: pointer;
+  &:hover { background: #1e4870; }
+}
+

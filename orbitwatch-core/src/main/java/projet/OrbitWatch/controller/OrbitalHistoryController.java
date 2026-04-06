@@ -211,6 +211,40 @@ public class OrbitalHistoryController {
     }
 
     // ─────────────────────────────────────────────────────────────────────────
+    // GET /api/v1/satellite/byname/{name}/summary
+    // ─────────────────────────────────────────────────────────────────────────
+
+    /**
+     * Résout un satellite par nom depuis le catalogue en mémoire, puis retourne son profil.
+     *
+     * <p>Commodité frontend : la carte live ne connaît que les noms de satellites, pas les NORAD IDs.
+     *
+     * @param name nom (ou fragment) du satellite — doit correspondre à exactement un satellite
+     * @return 200 + SatelliteSummary, 404 si inconnu, 409 si ambigu
+     */
+    @GetMapping("/satellite/byname/{name}/summary")
+    public ResponseEntity<SatelliteSummary> getSummaryByName(@PathVariable String name) {
+        TleEntry entry;
+        try {
+            entry = tleService.resolveUniqueTle(name);
+        } catch (TleService.TleNotFoundException e) {
+            return ResponseEntity.notFound().build();
+        } catch (TleService.AmbiguousTleException e) {
+            return ResponseEntity.status(org.springframework.http.HttpStatus.CONFLICT).build();
+        }
+
+        int noradId;
+        try {
+            noradId = extractor.extract(entry.name(), entry.line1(), entry.line2()).noradId();
+        } catch (Exception e) {
+            log.warn("[OrbitalHistoryController] getSummaryByName({}) — extraction TLE échouée : {}", name, e.getMessage());
+            return ResponseEntity.notFound().build();
+        }
+
+        return getSummary(noradId);
+    }
+
+    // ─────────────────────────────────────────────────────────────────────────
     // GET /api/v1/orbital-history/{noradId}/export?format=csv
     // ─────────────────────────────────────────────────────────────────────────
 
