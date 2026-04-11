@@ -8,7 +8,7 @@ import org.springframework.web.client.RestClientException;
 import org.springframework.web.client.RestTemplate;
 
 @Service
-public class CelesTrackClient {
+public class CelesTrackClient implements TleSourceClient {
 
 	private static final Logger log = LoggerFactory.getLogger(CelesTrackClient.class);
 
@@ -24,10 +24,16 @@ public class CelesTrackClient {
 		this.restTemplate = restTemplate;
 	}
 
+	@Override
+	public String sourceName() {
+		return "celestrak";
+	}
+
 	/**
-   * Télécharge un catalogue CelesTrak spécifique.
-   * @param catalogName identifiant du catalogue (ex : "stations", "active")
-   */
+	   * Télécharge un catalogue CelesTrak spécifique.
+	   * @param catalogName identifiant du catalogue (ex : "stations", "active")
+	   */
+	@Override
   public String getCatalog(String catalogName) {
       String url = buildUrl(catalogName);
       log.debug("[TleService] Téléchargement catalogue '{}' depuis {}", catalogName, url);

@@ -337,7 +337,32 @@ Développer une plateforme web de surveillance spatiale permettant de :
 
 ---
 
+### 2026-04-10 (suite)
+**Fallback Space-Track.org — résilience source TLE**
 
+*Contexte*
+- CelesTrak peut être momentanément indisponible (maintenance, surcharge) — sans fallback, l'historique orbital s'arrête de s'accumuler et les alertes ne sont plus mises à jour
+- Space-Track.org (18th Space Control Squadron / USSPACECOM) est la source officielle dont CelesTrak lui-même se nourrit → fallback fiable et gratuit
+
+*Décisions d'architecture*
+- **Pattern Chain of Responsibility** : pour chaque catalogue, les sources sont essayées dans l'ordre jusqu'à succès — extensible sans modifier le job
+- **`TleSourceClient`** (interface) : contrat commun `sourceName()` + `getCatalog(catalogName)` — les deux implémentations sont interchangeables
+- **`FetchTleJob`** remplace `FetchCelesTrackTLEJob` comme job actif — l'ancien job est conservé mais désactivé par défaut (`@ConditionalOnProperty(tle.legacy-fetch.enabled=false)`) pour ne pas casser les tests existants
+
+*Nouvelles classes*
+- `TleSourceClient` (interface, `client/`) : contrat commun pour toutes les sources TLE
+- `CelesTrackClient` : ajout `implements TleSourceClient` + `sourceName()` = `"celestrak"` — zéro changement fonctionnel
+- `SpaceTrackClient` (@Service, `@ConditionalOnProperty(tle.spacetrack.enabled=true)`) :
+  - Auth session : POST `/ajaxauth/login` → cookie `Set-Cookie` (name=value uniquement, Path/Expires strip)
+  - Mapping catalogue CelesTrak → requête GP Space-Track : `stations` → NORAD IDs fixes 25544+48274, `active` → `OBJECT_TYPE/PAYLOAD/DECAYED/0`, `visual` → `RCS_SIZE/LARGE`, `debris` → `OBJECT_TYPE/DEBRIS`, catalogue inconnu → fallback `PAYLOAD/DECAYED/0`
+  - Fetch : GET `/basicspacedata/query/class/gp/{query}/orderby/NORAD_CAT_ID/format/3le` avec cookie en header
+- `FetchTleJob` (@Component, `client/`) : Chain of Responsibility — itère sur `List<TleSourceClient>` injectée par Spring, passe à la source suivante si exception, réponse vide, ou 0 TLE parsés — log WARN par basculement, log ERROR si toutes sources KO
+
+*Tests*
+- `SpaceTrackClientTest` : 8 tests Mockito — `sourceName`, login+fetch nominal, URL GP correcte pour `stations` (NORAD IDs), catalogue inconnu → DEFAULT_QUERY, réponse vide → null, login KO réseau, login KO sans cookie (credentials invalides), cookie transmis dans le header du fetch
+- `FetchTleJobTest` : 8 tests Mockito — primaire OK (fallback non appelé), primaire KO → fallback, primaire vide → fallback, primaire 0 TLE → fallback, toutes KO → pas d'exception ni d'event, `refreshAll` itère tous catalogues, un catalogue KO n'empêche pas les autres, event contient catalogName+entries corrects
+
+---
 
 ## Notes techniques
 

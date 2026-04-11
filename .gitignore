@@ -17,6 +17,9 @@ target/
 .env.* (si tu veux pas versionner)
 orekit-data/
 
+# Secrets locaux (credentials SpaceTrack, etc.)
+**/application-secrets.properties
+
 # Build
 build/
 
