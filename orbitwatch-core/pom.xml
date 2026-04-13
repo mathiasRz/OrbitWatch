@@ -103,7 +103,21 @@
             <artifactId>smile-core</artifactId>
             <version>3.1.1</version>
         </dependency>
+
+		<!-- Spring AI — Ollama (dev) -->
+		<dependency>
+			<groupId>org.springframework.ai</groupId>
+			<artifactId>spring-ai-starter-model-ollama</artifactId>
+			<version>${spring-ai.version}</version>
+		</dependency>
+		<!-- Spring AI — PgVector store -->
+		<dependency>
+			<groupId>org.springframework.ai</groupId>
+			<artifactId>spring-ai-starter-vector-store-pgvector</artifactId>
+			<version>${spring-ai.version}</version>
+		</dependency>
 	</dependencies>
+
 
 	<build>
 		<plugins>

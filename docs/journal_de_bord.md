@@ -24,8 +24,8 @@ Développer une plateforme web de surveillance spatiale permettant de :
 | 1 | Moteur orbital minimal | Terminé | Orekit 13.1.4, propagation SGP4, API REST, 12 tests unitaires |
 | 2 | Ground track 2D | Terminé | Backend + frontend opérationnels, intégration CelesTrak, carte live multi-satellites |
 | 3 | Détection de rapprochements | Terminé | ConjunctionService + ConjunctionScanJob + BDD (conjunction_alert) + notifications IHM (badge polling 30 s) + page /conjunction + 23 tests |
-| 4 | Analyse d'évolution orbitale | En cours | Historique orbital (noradId, paramètres Keplériens), règles métier + Z-score Smile ML, page Profil satellite avec graphes Chart.js, badge anomalies |
-| 5 | Surveillance des débris + 3D | À venir | Heatmap orbitale + globe CesiumJS + assistant RAG v1 (Spring AI) |
+| 4 | Analyse d'évolution orbitale | Terminé | Historique orbital (noradId, paramètres Keplériens), règles métier + Z-score Smile ML, page Profil satellite avec graphes Chart.js, badge anomalies |
+| 5 | Surveillance des débris + 3D | En cours | Heatmap orbitale + globe CesiumJS + assistant RAG v1 (Spring AI) |
 | 6 | Version vitrine / Agent IA | À venir | Agent autonome Spring AI Tool Calling, polish 3D, SSE, export |
 
 ---
@@ -364,18 +364,30 @@ Développer une plateforme web de surveillance spatiale permettant de :
 
 ---
 
-## Notes techniques
+### 2026-04-13
+**Milestone 5 — Lancement : Surveillance des débris + Globe 3D + Assistant RAG v1**
+- Plan M5 rédigé dans `plan_milestone5.md`
+- Architecture cible : 3 features — (A) heatmap débris Leaflet, (B) globe CesiumJS, (C) assistant RAG Spring AI
+- Décisions clés :
+  - Dimension PgVector fixée à **768** (compatible Ollama `nomic-embed-text` ET OpenAI `text-embedding-3-small` avec `dimensions=768`)
+  - Garde-fous volume activés avant le catalogue `debris` (`orbital.history.catalogs.exclude=debris`, `conjunction.scan.catalogs=stations,active`)
+  - SSE via `SseEmitter` (Spring MVC, pas WebFlux) pour le streaming LLM
+  - CesiumJS lazy-loadé sur la route `/globe` pour ne pas pénaliser le chargement initial
+  - Ollama en dev (gratuit, local) / OpenAI en prod (même code, profil Spring)
 
-- Pour Orekit, initialiser correctement les données via :
+**Étapes 5.1 + 5.11 + 5.2 — Fondations RAG + garde-fous volume**
 
-```java
-@Component
-public class OrekitInitializer {
-    @PostConstruct
-    public void init() throws Exception {
-        File orekitData = new File("src/main/resources/orekit-data");
-        DataProvidersManager manager = DataContext.getDefault().getDataProvidersManager();
-        manager.addProvider(new DirectoryCrawler(orekitData));
-    }
-}
-```
+*Étape 5.1 — config PgVector*
+- `V5__pgvector_store.sql` : `CREATE EXTENSION IF NOT EXISTS vector`, table `vector_store` (id UUID, content TEXT, metadata JSONB, embedding vector(768)), index HNSW cosinus
+- `application.properties` : config PgVector (dimensions=768, HNSW, COSINE_DISTANCE, initialize-schema=false) + propriétés RAG (ingestion.enabled, ingestion.catalogs, sse.timeout-ms) + garde-fous volume
+- `application-dev.properties` : ajout `spring.ai.ollama.base-url=http://localhost:11434`
+- `application-test.properties` : exclusion auto-config PgVector + `rag.ingestion.enabled=false` (H2 ne supporte pas l'extension `vector`)
+- `application-secrets.properties.example` : ajout des exemples de config OpenAI commentés (pour la prod)
+
+*Étape 5.11 — Garde-fous volume (OrbitalHistoryJob + ConjunctionScanJob)*
+- `OrbitalHistoryJob` : nouveau champ `excludedCatalogs` (`@Value` SpEL split), vérification en tête de `onCatalogRefreshed` — le catalogue `debris` est ignoré silencieusement
+- `ConjunctionScanJob` : nouveau champ `scannedCatalogs` (`@Value` SpEL split), `scan()` reconstruit la liste uniquement depuis les catalogues autorisés (plus de `tleService.findAll()`)
+- Les deux propriétés sont configurables : `orbital.history.catalogs.exclude=debris` et `conjunction.scan.catalogs=stations,active`
+
+*Étape 5.2 — Dépendances Maven Spring AI*
+- Starters ajoutés dans `pom.xml` : `spring-ai-starter-model-ollama` et `spring-ai-starter-vector-store-pgvector` (nouveaux GAV Spring AI 2.x, version gérée par le BOM 2.0.0-M4)

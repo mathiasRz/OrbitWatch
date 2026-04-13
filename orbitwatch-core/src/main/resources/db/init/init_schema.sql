@@ -63,3 +63,18 @@ CREATE TABLE IF NOT EXISTS anomaly_alert (
 CREATE INDEX IF NOT EXISTS idx_anomaly_norad_type
     ON anomaly_alert (norad_id, type, detected_at DESC);
 
+-- ── V5 : vector_store (Spring AI PgVector — RAG) ──────────────────────────────
+-- Nécessite l'extension pgvector (PostgreSQL 15+ avec droits CREATE EXTENSION)
+CREATE EXTENSION IF NOT EXISTS vector;
+
+CREATE TABLE IF NOT EXISTS vector_store (
+    id        UUID    DEFAULT gen_random_uuid() PRIMARY KEY,
+    content   TEXT,
+    metadata  JSONB,
+    embedding vector(768)   -- dimension 768 : nomic-embed-text (Ollama) / text-embedding-3-small (OpenAI)
+);
+
+-- Index HNSW pour la recherche de similarité cosinus (O(log n))
+CREATE INDEX IF NOT EXISTS idx_vector_store_embedding
+    ON vector_store USING hnsw (embedding vector_cosine_ops);
+

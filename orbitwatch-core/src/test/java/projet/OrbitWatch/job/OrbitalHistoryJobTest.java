@@ -15,6 +15,7 @@ import projet.OrbitWatch.repository.OrbitalHistoryRepository;
 import projet.OrbitWatch.service.OrbitalElementsExtractor;
 
 import java.time.Instant;
+import java.util.ArrayList;
 import java.util.List;
 
 import static org.assertj.core.api.Assertions.*;
@@ -56,6 +57,8 @@ class OrbitalHistoryJobTest {
     void setUp() {
         job = new OrbitalHistoryJob(extractor, repository);
         ReflectionTestUtils.setField(job, "retentionDays", 90);
+        // Aucun catalogue exclu dans les tests de base (guard-fou debris non activé)
+        ReflectionTestUtils.setField(job, "excludedCatalogs", new ArrayList<>());
     }
 
     // ═════════════════════════════════════════════════════════════════════════
@@ -147,6 +150,26 @@ class OrbitalHistoryJobTest {
         TleCatalogRefreshedEvent event = new TleCatalogRefreshedEvent("stations", List.of());
 
         assertThatCode(() -> job.onCatalogRefreshed(event)).doesNotThrowAnyException();
+        verify(extractor, never()).extract(any(), any(), any());
+        verify(repository, never()).save(any());
+    }
+
+    // ═════════════════════════════════════════════════════════════════════════
+    // Garde-fou volume — catalogue exclu
+    // ═════════════════════════════════════════════════════════════════════════
+
+    @Test
+    @DisplayName("Catalogue 'debris' exclu → 0 appels repository.save()")
+    void onCatalogRefreshed_excludedCatalog_skipsAllSaves() {
+        ReflectionTestUtils.setField(job, "excludedCatalogs", List.of("debris"));
+
+        TleEntry debrisEntry = new TleEntry("COSMOS DEB", ISS_LINE1, ISS_LINE2, "debris", Instant.now());
+        TleCatalogRefreshedEvent event = new TleCatalogRefreshedEvent(
+                "debris", List.of(debrisEntry, debrisEntry)
+        );
+
+        job.onCatalogRefreshed(event);
+
         verify(extractor, never()).extract(any(), any(), any());
         verify(repository, never()).save(any());
     }

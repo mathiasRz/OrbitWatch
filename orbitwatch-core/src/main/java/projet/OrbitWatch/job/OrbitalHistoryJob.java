@@ -15,6 +15,7 @@ import projet.OrbitWatch.service.OrbitalElementsExtractor;
 
 import java.time.Instant;
 import java.time.temporal.ChronoUnit;
+import java.util.ArrayList;
 import java.util.List;
 
 /**
@@ -42,6 +43,9 @@ public class OrbitalHistoryJob {
     @Value("${orbital.history.retention-days:90}")
     private int retentionDays;
 
+    @Value("#{'${orbital.history.catalogs.exclude:debris}'.split(',')}")
+    private List<String> excludedCatalogs = new ArrayList<>();
+
     private final OrbitalElementsExtractor  extractor;
     private final OrbitalHistoryRepository  repository;
 
@@ -63,6 +67,12 @@ public class OrbitalHistoryJob {
     public void onCatalogRefreshed(TleCatalogRefreshedEvent event) {
         List<TleEntry> entries = event.entries();
         String catalog = event.catalogName();
+
+        // ── Garde-fou volume : skip des catalogues exclus (ex: debris) ────
+        if (excludedCatalogs.stream().map(String::trim).anyMatch(catalog::equalsIgnoreCase)) {
+            log.info("[OrbitalHistoryJob] Catalogue '{}' exclu — historique non persisté.", catalog);
+            return;
+        }
 
         if (entries.isEmpty()) {
             log.info("[OrbitalHistoryJob] Catalogue '{}' vide — rien à persister.", catalog);

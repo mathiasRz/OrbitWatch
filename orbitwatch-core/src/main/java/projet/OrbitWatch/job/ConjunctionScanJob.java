@@ -2,6 +2,7 @@ package projet.OrbitWatch.job;
 
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
+import org.springframework.beans.factory.annotation.Value;
 import org.springframework.boot.autoconfigure.condition.ConditionalOnProperty;
 import org.springframework.scheduling.annotation.Scheduled;
 import org.springframework.stereotype.Component;
@@ -16,6 +17,7 @@ import projet.OrbitWatch.service.TleService;
 
 import java.time.Instant;
 import java.time.temporal.ChronoUnit;
+import java.util.ArrayList;
 import java.util.List;
 
 /**
@@ -36,6 +38,9 @@ public class ConjunctionScanJob {
     /** Fenêtre de déduplication : ±5 minutes autour du TCA pour éviter les doublons. */
     private static final long DEDUP_MARGIN_MINUTES = 5;
 
+    @Value("#{'${conjunction.scan.catalogs:stations,active}'.split(',')}")
+    private List<String> scannedCatalogs;
+
     private final TleService                 tleService;
     private final ConjunctionService         conjunctionService;
     private final ConjunctionAlertRepository repository;
@@ -55,7 +60,11 @@ public class ConjunctionScanJob {
     @Scheduled(initialDelay = 30_000,
                fixedDelayString = "${conjunction.scan.delay-ms:3600000}")
     public void scan() {
-        List<TleEntry> entries = tleService.findAll();
+        // ── Garde-fou volume : ne scanner que les catalogues autorisés ────
+        List<TleEntry> entries = new ArrayList<>();
+        for (String catalog : scannedCatalogs) {
+            entries.addAll(tleService.findByCatalog(catalog.trim()));
+        }
 
         if (entries.size() < 2) {
             log.info("[ConjunctionScanJob] Moins de 2 satellites en mémoire — scan ignoré.");
