@@ -20,6 +20,9 @@ orekit-data/
 # Secrets locaux (credentials SpaceTrack, etc.)
 **/application-secrets.properties
 
+# Base de donnees H2 locale (dev)
+data/
+
 # Build
 build/
 

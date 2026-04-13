@@ -1,5 +1,4 @@
 -- Migration V1 : création de la table conjunction_alert
--- Utilisée en prod (PostgreSQL) — en dev H2 la table est créée par ddl-auto=create-drop
 
 CREATE TABLE IF NOT EXISTS conjunction_alert (
     id           BIGSERIAL    PRIMARY KEY,

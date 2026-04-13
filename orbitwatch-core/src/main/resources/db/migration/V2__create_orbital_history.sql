@@ -1,5 +1,4 @@
 -- Migration V2 : création de la table orbital_history
--- Utilisée en prod (PostgreSQL) — en dev/test H2 la table est créée par ddl-auto=create-drop
 
 CREATE TABLE IF NOT EXISTS orbital_history (
     id                  BIGSERIAL        PRIMARY KEY,
@@ -17,7 +16,6 @@ CREATE TABLE IF NOT EXISTS orbital_history (
 );
 
 -- Index composite pour les requêtes par satellite + plage temporelle
--- Couvre : findByNoradIdOrderByFetchedAtDesc, findByNoradIdAndFetchedAtBetween, countByNoradId
 CREATE INDEX IF NOT EXISTS idx_orbital_history_norad_time
     ON orbital_history (norad_id, fetched_at DESC);
 
