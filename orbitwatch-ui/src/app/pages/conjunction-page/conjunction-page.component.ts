@@ -6,11 +6,15 @@ import {
 } from '@angular/core';
 import { CommonModule, DatePipe, DecimalPipe } from '@angular/common';
 import { RouterLink, RouterLinkActive } from '@angular/router';
+import { combineLatest, catchError, of } from 'rxjs';
 import { ConjunctionFormComponent } from '../../components/conjunction-form/conjunction-form.component';
 import { ConjunctionMapComponent } from '../../components/conjunction-map/conjunction-map.component';
 import { AlertBadgeComponent, CombinedAlerts } from '../../components/alert-badge/alert-badge.component';
 import { AlertPanelComponent } from '../../components/alert-panel/alert-panel.component';
-import { ConjunctionReport } from '../../models/conjunction.model';
+import { ConjunctionReport, ConjunctionAlert } from '../../models/conjunction.model';
+import { ConjunctionService } from '../../services/conjunction.service';
+import { AnomalyService } from '../../services/anomaly.service';
+import { AnomalyAlert } from '../../models/satellite.model';
 
 @Component({
   selector: 'app-conjunction-page',
@@ -38,7 +42,9 @@ export class ConjunctionPageComponent {
   panelOpen    = false;
   panelAlerts: CombinedAlerts = { conjunctions: [], anomalies: [] };
 
-  private readonly cdr = inject(ChangeDetectorRef);
+  private readonly cdr                = inject(ChangeDetectorRef);
+  private readonly conjunctionService = inject(ConjunctionService);
+  private readonly anomalyService     = inject(AnomalyService);
 
   onReportReady(report: ConjunctionReport): void {
     this.report = report;
@@ -64,6 +70,16 @@ export class ConjunctionPageComponent {
   closePanel(): void {
     this.panelOpen = false;
     this.cdr.markForCheck();
+  }
+
+  refreshPanel(): void {
+    combineLatest([
+      this.conjunctionService.getUnreadAlerts().pipe(catchError(() => of([] as ConjunctionAlert[]))),
+      this.anomalyService.getUnreadAlerts().pipe(catchError(() => of([] as AnomalyAlert[])))
+    ]).subscribe(([conjunctions, anomalies]) => {
+      this.panelAlerts = { conjunctions, anomalies };
+      this.cdr.markForCheck();
+    });
   }
 
   severityClass(distanceKm: number): string {

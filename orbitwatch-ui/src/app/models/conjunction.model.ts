@@ -40,6 +40,8 @@ export interface ConjunctionAlert {
   id: number;
   nameSat1: string;
   nameSat2: string;
+  noradId1: number;
+  noradId2: number;
   tca: string;
   distanceKm: number;
   lat1: number; lon1: number; alt1: number;

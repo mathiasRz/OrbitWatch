@@ -21,17 +21,17 @@ public interface ConjunctionAlertRepository extends JpaRepository<ConjunctionAle
     List<ConjunctionAlert> findByAcknowledgedFalseOrderByTcaAsc();
 
     /**
-     * Déduplication : vérifie si une alerte existe déjà pour cette paire de satellites
+     * Déduplication par NORAD ID : vérifie si une alerte existe déjà pour cette paire
      * autour d'un TCA donné (fenêtre ±{@code marginMinutes} minutes).
      *
-     * @param nameSat1  Nom du satellite 1
-     * @param nameSat2  Nom du satellite 2
+     * @param noradId1  NORAD ID du satellite 1
+     * @param noradId2  NORAD ID du satellite 2
      * @param tcaFrom   Début de la fenêtre de déduplication
      * @param tcaTo     Fin de la fenêtre de déduplication
      * @return {@code true} si une alerte similaire existe déjà
      */
-    boolean existsByNameSat1AndNameSat2AndTcaBetween(
-            String nameSat1, String nameSat2,
+    boolean existsByNoradId1AndNoradId2AndTcaBetween(
+            int noradId1, int noradId2,
             Instant tcaFrom, Instant tcaTo);
 }
 

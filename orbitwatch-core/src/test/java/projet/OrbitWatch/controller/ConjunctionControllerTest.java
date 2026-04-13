@@ -190,7 +190,7 @@ class ConjunctionControllerTest {
     @DisplayName("GET /alerts : retourne 200 avec une page d'alertes")
     void getAlerts_returns200WithPage() throws Exception {
         ConjunctionAlert alert = new ConjunctionAlert(
-                "ISS", "CSS", NOW, 3.5, 45.0, 10.0, 410.0, 40.0, 15.0, 390.0);
+                "ISS", "CSS", 25544, 48274, NOW, 3.5, 45.0, 10.0, 410.0, 40.0, 15.0, 390.0);
         when(repository.findAll(any(Specification.class), any(Pageable.class)))
                 .thenReturn(new PageImpl<>(List.of(alert)));
 
@@ -216,7 +216,7 @@ class ConjunctionControllerTest {
     @DisplayName("GET /alerts?sat=ISS : filtre par nom de satellite → 200 avec résultats filtrés")
     void getAlerts_filterBySat_returns200() throws Exception {
         ConjunctionAlert issAlert = new ConjunctionAlert(
-                "ISS (ZARYA)", "CSS", NOW, 3.5, 45.0, 10.0, 410.0, 40.0, 15.0, 390.0);
+                "ISS (ZARYA)", "CSS", 25544, 48274, NOW, 3.5, 45.0, 10.0, 410.0, 40.0, 15.0, 390.0);
         when(repository.findAll(any(Specification.class), any(Pageable.class)))
                 .thenReturn(new PageImpl<>(List.of(issAlert)));
 
@@ -230,7 +230,7 @@ class ConjunctionControllerTest {
     @DisplayName("GET /alerts?maxKm=5 : filtre par distance maximale → 200 avec résultats filtrés")
     void getAlerts_filterByMaxKm_returns200() throws Exception {
         ConjunctionAlert closeAlert = new ConjunctionAlert(
-                "ISS", "CSS", NOW, 2.1, 45.0, 10.0, 410.0, 40.0, 15.0, 390.0);
+                "ISS", "CSS", 25544, 48274, NOW, 2.1, 45.0, 10.0, 410.0, 40.0, 15.0, 390.0);
         when(repository.findAll(any(Specification.class), any(Pageable.class)))
                 .thenReturn(new PageImpl<>(List.of(closeAlert)));
 
@@ -244,7 +244,7 @@ class ConjunctionControllerTest {
     @DisplayName("GET /alerts?sat=ISS&maxKm=5 : filtres combinés sat + maxKm → 200")
     void getAlerts_filterBySatAndMaxKm_returns200() throws Exception {
         ConjunctionAlert alert = new ConjunctionAlert(
-                "ISS (ZARYA)", "CSS", NOW, 3.5, 45.0, 10.0, 410.0, 40.0, 15.0, 390.0);
+                "ISS (ZARYA)", "CSS", 25544, 48274, NOW, 3.5, 45.0, 10.0, 410.0, 40.0, 15.0, 390.0);
         when(repository.findAll(any(Specification.class), any(Pageable.class)))
                 .thenReturn(new PageImpl<>(List.of(alert)));
 
@@ -259,7 +259,7 @@ class ConjunctionControllerTest {
     @DisplayName("GET /alerts?from=...&to=... : filtre par fenêtre temporelle → 200")
     void getAlerts_filterByDateRange_returns200() throws Exception {
         ConjunctionAlert alert = new ConjunctionAlert(
-                "ISS", "CSS", NOW, 3.5, 45.0, 10.0, 410.0, 40.0, 15.0, 390.0);
+                "ISS", "CSS", 25544, 48274, NOW, 3.5, 45.0, 10.0, 410.0, 40.0, 15.0, 390.0);
         when(repository.findAll(any(Specification.class), any(Pageable.class)))
                 .thenReturn(new PageImpl<>(List.of(alert)));
 
@@ -278,7 +278,7 @@ class ConjunctionControllerTest {
     @DisplayName("GET /alerts/unread : retourne la liste des alertes non acquittées")
     void getUnreadAlerts_returnsUnreadList() throws Exception {
         ConjunctionAlert alert = new ConjunctionAlert(
-                "ISS", "CSS", NOW, 3.5, 45.0, 10.0, 410.0, 40.0, 15.0, 390.0);
+                "ISS", "CSS", 25544, 48274, NOW, 3.5, 45.0, 10.0, 410.0, 40.0, 15.0, 390.0);
         when(repository.findByAcknowledgedFalseOrderByTcaAsc()).thenReturn(List.of(alert));
 
         mockMvc.perform(get("/api/v1/conjunction/alerts/unread"))
@@ -305,7 +305,7 @@ class ConjunctionControllerTest {
     @DisplayName("PUT /alerts/{id}/ack : alerte existante → 204 + save appelé")
     void acknowledge_existingAlert_returns204() throws Exception {
         ConjunctionAlert alert = new ConjunctionAlert(
-                "ISS", "CSS", NOW, 3.5, 45.0, 10.0, 410.0, 40.0, 15.0, 390.0);
+                "ISS", "CSS", 25544, 48274, NOW, 3.5, 45.0, 10.0, 410.0, 40.0, 15.0, 390.0);
         when(repository.findById(1L)).thenReturn(Optional.of(alert));
 
         mockMvc.perform(put("/api/v1/conjunction/alerts/1/ack"))

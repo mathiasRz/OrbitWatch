@@ -73,6 +73,17 @@ public class ConjunctionScanJob {
                 TleEntry sat1 = entries.get(i);
                 TleEntry sat2 = entries.get(j);
 
+                int norad1 = sat1.noradId();
+                int norad2 = sat2.noradId();
+
+                // Ignorer les entrées dont le NORAD ID n'a pas pu être extrait
+                if (norad1 <= 0 || norad2 <= 0) {
+                    log.debug("[ConjunctionScanJob] NORAD ID invalide pour {} ({}) ou {} ({}) — paire ignorée.",
+                            sat1.name(), norad1, sat2.name(), norad2);
+                    erreurs++;
+                    continue;
+                }
+
                 try {
                     ConjunctionRequest req = new ConjunctionRequest(
                             sat1.name(), sat1.line1(), sat1.line2(),
@@ -83,12 +94,12 @@ public class ConjunctionScanJob {
                     ConjunctionReport report = conjunctionService.analyze(req);
 
                     for (ConjunctionEvent event : report.events()) {
-                        // Déduplication : fenêtre ±5 min autour du TCA
+                        // Déduplication par NORAD ID : fenêtre ±5 min autour du TCA
                         Instant from = event.tca().minus(DEDUP_MARGIN_MINUTES, ChronoUnit.MINUTES);
                         Instant to   = event.tca().plus(DEDUP_MARGIN_MINUTES, ChronoUnit.MINUTES);
 
-                        boolean exists = repository.existsByNameSat1AndNameSat2AndTcaBetween(
-                                sat1.name(), sat2.name(), from, to);
+                        boolean exists = repository.existsByNoradId1AndNoradId2AndTcaBetween(
+                                norad1, norad2, from, to);
 
                         if (exists) {
                             skipDedup++;
@@ -97,6 +108,7 @@ public class ConjunctionScanJob {
 
                         ConjunctionAlert alert = new ConjunctionAlert(
                                 sat1.name(), sat2.name(),
+                                norad1, norad2,
                                 event.tca(), event.distanceKm(),
                                 event.sat1().latitude(),  event.sat1().longitude(),  event.sat1().altitude(),
                                 event.sat2().latitude(),  event.sat2().longitude(),  event.sat2().altitude()
@@ -104,8 +116,8 @@ public class ConjunctionScanJob {
                         repository.save(alert);
                         newAlerts++;
 
-                        log.warn("[ConjunctionScanJob] ⚠ Nouvelle alerte persistée : {} ↔ {} — {:.3f} km au {}",
-                                sat1.name(), sat2.name(), event.distanceKm(), event.tca());
+                        log.warn("[ConjunctionScanJob] ⚠ Nouvelle alerte : {} ({}) ↔ {} ({}) — {:.3f} km au {}",
+                                sat1.name(), norad1, sat2.name(), norad2, event.distanceKm(), event.tca());
                     }
 
                 } catch (Exception ex) {

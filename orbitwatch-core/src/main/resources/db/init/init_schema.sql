@@ -6,11 +6,13 @@
 --   psql -U orbitwatch -d orbitwatch -f orbitwatch-core/src/main/resources/db/init/init_schema.sql
 -- ============================================================
 
--- ── V1 : conjunction_alert ────────────────────────────────────────────────────
+-- ── V1+V4 : conjunction_alert ─────────────────────────────────────────────────
 CREATE TABLE IF NOT EXISTS conjunction_alert (
     id           BIGSERIAL    PRIMARY KEY,
     name_sat1    VARCHAR(255) NOT NULL,
     name_sat2    VARCHAR(255) NOT NULL,
+    norad_id1    INTEGER      NOT NULL DEFAULT 0,
+    norad_id2    INTEGER      NOT NULL DEFAULT 0,
     tca          TIMESTAMPTZ  NOT NULL,
     distance_km  DOUBLE PRECISION NOT NULL,
     lat1         DOUBLE PRECISION,
@@ -23,8 +25,9 @@ CREATE TABLE IF NOT EXISTS conjunction_alert (
     acknowledged BOOLEAN      NOT NULL DEFAULT FALSE
 );
 
+-- Index de déduplication basé sur les NORAD IDs (plus fiables que les noms)
 CREATE INDEX IF NOT EXISTS idx_conjunction_dedup
-    ON conjunction_alert (name_sat1, name_sat2, tca);
+    ON conjunction_alert (norad_id1, norad_id2, tca);
 
 -- ── V2 : orbital_history ─────────────────────────────────────────────────────
 CREATE TABLE IF NOT EXISTS orbital_history (

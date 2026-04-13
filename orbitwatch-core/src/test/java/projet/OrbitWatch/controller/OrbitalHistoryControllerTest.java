@@ -166,9 +166,9 @@ class OrbitalHistoryControllerTest {
         when(tleService.findAll()).thenReturn(List.of());
 
         ConjunctionAlert issAlert = new ConjunctionAlert(
-                "ISS (ZARYA)", "CSS", T0, 3.5, 45.0, 10.0, 410.0, 40.0, 15.0, 390.0);
+                "ISS (ZARYA)", "CSS", 25544, 48274, T0, 3.5, 45.0, 10.0, 410.0, 40.0, 15.0, 390.0);
         ConjunctionAlert otherAlert = new ConjunctionAlert(
-                "SENTINEL-1A", "CSS", T0, 5.0, 10.0, 5.0, 500.0, 15.0, 20.0, 510.0);
+                "SENTINEL-1A", "CSS", 39634, 48274, T0, 5.0, 10.0, 5.0, 500.0, 15.0, 20.0, 510.0);
         when(conjunctionAlertRepository.findByAcknowledgedFalseOrderByTcaAsc())
                 .thenReturn(List.of(issAlert, otherAlert));
 

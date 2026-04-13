@@ -7,7 +7,7 @@ import {
 } from '@angular/core';
 import { CommonModule, DatePipe, DecimalPipe } from '@angular/common';
 import { ActivatedRoute, Router, RouterLink, RouterLinkActive } from '@angular/router';
-import { catchError, forkJoin, of, switchMap } from 'rxjs';
+import { catchError, combineLatest, forkJoin, of, switchMap } from 'rxjs';
 import { OrbitalHistoryService } from '../../services/orbital-history.service';
 import { AnomalyService } from '../../services/anomaly.service';
 import { AlertBadgeComponent } from '../../components/alert-badge/alert-badge.component';
@@ -155,8 +155,11 @@ export class SatelliteProfilePageComponent implements OnInit {
   }
 
   refreshPanel(): void {
-    this.conjunctionSvc.getUnreadAlerts().subscribe(conjunctions => {
-      this.panelAlerts = { conjunctions, anomalies: this.panelAlerts.anomalies };
+    combineLatest([
+      this.conjunctionSvc.getUnreadAlerts().pipe(catchError(() => of([] as ConjunctionAlert[]))),
+      this.anomalySvc.getUnreadAlerts().pipe(catchError(() => of([] as AnomalyAlert[])))
+    ]).subscribe(([conjunctions, anomalies]) => {
+      this.panelAlerts = { conjunctions, anomalies };
       this.cdr.markForCheck();
     });
   }

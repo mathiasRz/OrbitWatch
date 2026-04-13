@@ -13,8 +13,8 @@ import java.time.Instant;
 @Table(
     name = "conjunction_alert",
     indexes = {
-        // Index composite pour la déduplication (nameSat1, nameSat2, tca)
-        @Index(name = "idx_conjunction_dedup", columnList = "name_sat1, name_sat2, tca")
+        // Index composite pour la déduplication par NORAD ID + tca
+        @Index(name = "idx_conjunction_dedup", columnList = "norad_id1, norad_id2, tca")
     }
 )
 public class ConjunctionAlert {
@@ -30,6 +30,14 @@ public class ConjunctionAlert {
     /** Nom du satellite 2. */
     @Column(name = "name_sat2", nullable = false)
     private String nameSat2;
+
+    /** NORAD Catalog Number du satellite 1. */
+    @Column(name = "norad_id1", nullable = false)
+    private int noradId1;
+
+    /** NORAD Catalog Number du satellite 2. */
+    @Column(name = "norad_id2", nullable = false)
+    private int noradId2;
 
     /** Time of Closest Approach : instant UTC du minimum de distance. */
     @Column(name = "tca", nullable = false)
@@ -62,11 +70,14 @@ public class ConjunctionAlert {
     protected ConjunctionAlert() {}
 
     public ConjunctionAlert(String nameSat1, String nameSat2,
+                            int noradId1, int noradId2,
                             Instant tca, double distanceKm,
                             double lat1, double lon1, double alt1,
                             double lat2, double lon2, double alt2) {
         this.nameSat1    = nameSat1;
         this.nameSat2    = nameSat2;
+        this.noradId1    = noradId1;
+        this.noradId2    = noradId2;
         this.tca         = tca;
         this.distanceKm  = distanceKm;
         this.lat1        = lat1;
@@ -84,6 +95,8 @@ public class ConjunctionAlert {
     public Long    getId()          { return id; }
     public String  getNameSat1()    { return nameSat1; }
     public String  getNameSat2()    { return nameSat2; }
+    public int     getNoradId1()    { return noradId1; }
+    public int     getNoradId2()    { return noradId2; }
     public Instant getTca()         { return tca; }
     public double  getDistanceKm()  { return distanceKm; }
     public double  getLat1()        { return lat1; }

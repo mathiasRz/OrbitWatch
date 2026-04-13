@@ -136,13 +136,34 @@ public class AnomalyDetectionService {
         double deltaRaan = Math.abs(recent.getRaanDeg() - prev.getRaanDeg());
         // Gérer le saut circulaire 360°→0°
         if (deltaRaan > 180.0) deltaRaan = 360.0 - deltaRaan;
-        if (deltaRaan > thresholdRaanDeg) {
+
+        // Soustraire la précession nodale naturelle J2 pour éviter les faux positifs.
+        // Formule approchée : dΩ/dt ≈ -2.0663e10 * cos(i) / (a^3.5 * (1-e²)²) [°/jour]
+        // où a est en km. Ramené sur l'intervalle de temps réel entre les deux snapshots.
+        double naturalDriftDeg = 0.0;
+        try {
+            double incRad  = Math.toRadians(recent.getInclinationDeg());
+            double a       = recent.getSemiMajorAxisKm(); // km
+            double e       = recent.getEccentricity();
+            double driftPerDay = -2.0663e10 * Math.cos(incRad)
+                    / (Math.pow(a, 3.5) * Math.pow(1 - e * e, 2.0));
+            // Temps entre les deux snapshots en jours
+            double dtDays = java.time.Duration.between(
+                    prev.getFetchedAt(), recent.getFetchedAt()).toSeconds() / 86400.0;
+            naturalDriftDeg = Math.abs(driftPerDay * dtDays);
+        } catch (Exception ignored) {
+            // Si le calcul échoue, on conserve deltaRaan brut
+        }
+
+        double anomalousDrift = Math.max(0.0, deltaRaan - naturalDriftDeg);
+        if (anomalousDrift > thresholdRaanDeg) {
             alerts.add(new AnomalyAlert(
                     noradId, satName, detectedAt,
                     AnomalyType.RAAN_DRIFT,
-                    severity(deltaRaan, thresholdRaanDeg),
-                    "RAAN drift of %.3f° detected (%.3f → %.3f°)"
-                            .formatted(deltaRaan, prev.getRaanDeg(), recent.getRaanDeg())
+                    severity(anomalousDrift, thresholdRaanDeg),
+                    "RAAN anomalous drift of %.3f° detected (total: %.3f°, natural: %.3f°) (%.3f → %.3f°)"
+                            .formatted(anomalousDrift, deltaRaan, naturalDriftDeg,
+                                    prev.getRaanDeg(), recent.getRaanDeg())
             ));
         }
 

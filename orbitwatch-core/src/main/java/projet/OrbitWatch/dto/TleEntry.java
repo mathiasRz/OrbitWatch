@@ -17,5 +17,18 @@ public record TleEntry(
         String line2,
         String source,
         Instant fetchedAt
-) {}
+) {
+    /**
+     * Extrait le NORAD Catalog Number depuis la ligne 1 du TLE (colonnes 3-7, 1-indexed).
+     * Retourne -1 si le parsing échoue.
+     */
+    public int noradId() {
+        try {
+            // Format TLE ligne 1 : "1 NNNNNX ..." — le NORAD ID est aux positions 2-6 (0-indexed)
+            return Integer.parseInt(line1.substring(2, 7).trim());
+        } catch (NumberFormatException | StringIndexOutOfBoundsException e) {
+            return -1;
+        }
+    }
+}
 

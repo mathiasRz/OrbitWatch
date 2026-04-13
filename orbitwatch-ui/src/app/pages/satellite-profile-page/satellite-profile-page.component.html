@@ -143,7 +143,8 @@
   @if (panelOpen) {
     <app-alert-panel
       [alerts]="panelAlerts"
-      (close)="closePanel()">
+      (close)="closePanel()"
+      (alertsChanged)="refreshPanel()">
     </app-alert-panel>
   }
 </div>

@@ -164,14 +164,12 @@ public class OrbitalHistoryController {
                 ? ChronoUnit.MINUTES.between(tleEpoch, Instant.now()) / 60.0
                 : -1.0;
 
-        // ── 3. Conjonctions récentes impliquant ce satellite ──────────────────
+        // ── 3. Conjonctions récentes impliquant ce satellite (filtre par NORAD ID) ─
         String satName = latest.getSatelliteName();
         List<ConjunctionAlert> recent = conjunctionAlertRepository
                 .findByAcknowledgedFalseOrderByTcaAsc()
                 .stream()
-                .filter(a -> satName != null && (
-                        satName.equalsIgnoreCase(a.getNameSat1()) ||
-                        satName.equalsIgnoreCase(a.getNameSat2())))
+                .filter(a -> a.getNoradId1() == noradId || a.getNoradId2() == noradId)
                 .limit(RECENT_CONJUNCTIONS_LIMIT)
                 .toList();
 
