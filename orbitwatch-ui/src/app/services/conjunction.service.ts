@@ -8,36 +8,35 @@ import {
   ConjunctionReport,
   ConjunctionRequest
 } from '../models/conjunction.model';
+import { API_ENDPOINTS } from '../config/api-endpoints';
 
 @Injectable({ providedIn: 'root' })
 export class ConjunctionService {
-  private readonly http    = inject(HttpClient);
-  private readonly baseUrl = 'http://localhost:8080/api/v1/conjunction';
+  private readonly http = inject(HttpClient);
 
   /** Analyse on-demand avec TLEs bruts */
   analyze(req: ConjunctionRequest): Observable<ConjunctionReport> {
-    return this.http.post<ConjunctionReport>(`${this.baseUrl}/analyze`, req);
+    return this.http.post<ConjunctionReport>(API_ENDPOINTS.conjunction.analyze, req);
   }
 
   /** Analyse on-demand par nom de satellite (résolu côté serveur) */
   analyzeByName(req: AnalyzeByNameRequest): Observable<ConjunctionReport> {
-    return this.http.post<ConjunctionReport>(`${this.baseUrl}/analyze-by-name`, req);
+    return this.http.post<ConjunctionReport>(API_ENDPOINTS.conjunction.analyzeByName, req);
   }
 
   /** Liste paginée de toutes les alertes */
   getAlerts(page = 0, size = 20): Observable<AlertPage> {
     const params = new HttpParams().set('page', page).set('size', size);
-    return this.http.get<AlertPage>(`${this.baseUrl}/alerts`, { params });
+    return this.http.get<AlertPage>(API_ENDPOINTS.conjunction.alerts, { params });
   }
 
   /** Alertes non acquittées — pour le badge navbar */
   getUnreadAlerts(): Observable<ConjunctionAlert[]> {
-    return this.http.get<ConjunctionAlert[]>(`${this.baseUrl}/alerts/unread`);
+    return this.http.get<ConjunctionAlert[]>(API_ENDPOINTS.conjunction.alertsUnread);
   }
 
   /** Acquitte une alerte */
   acknowledge(id: number): Observable<void> {
-    return this.http.put<void>(`${this.baseUrl}/alerts/${id}/ack`, null);
+    return this.http.put<void>(API_ENDPOINTS.conjunction.alertAck(id), null);
   }
 }
-

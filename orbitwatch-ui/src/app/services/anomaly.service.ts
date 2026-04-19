@@ -2,6 +2,7 @@ import { Injectable, inject } from '@angular/core';
 import { HttpClient, HttpParams } from '@angular/common/http';
 import { Observable } from 'rxjs';
 import { AnomalyAlert, AnomalyAlertPage, AnomalyType, AnomalySeverity } from '../models/satellite.model';
+import { API_ENDPOINTS } from '../config/api-endpoints';
 
 export interface AnomalyAlertFilters {
   noradId?: number;
@@ -15,8 +16,7 @@ export interface AnomalyAlertFilters {
 
 @Injectable({ providedIn: 'root' })
 export class AnomalyService {
-  private readonly http    = inject(HttpClient);
-  private readonly baseUrl = 'http://localhost:8080/api/v1/anomaly';
+  private readonly http = inject(HttpClient);
 
   /** Liste paginée + filtres optionnels */
   getAlerts(filters: AnomalyAlertFilters = {}): Observable<AnomalyAlertPage> {
@@ -27,17 +27,16 @@ export class AnomalyService {
     if (filters.from)              params = params.set('from',     filters.from);
     if (filters.to)                params = params.set('to',       filters.to);
     params = params.set('page', filters.page ?? 0).set('size', filters.size ?? 20);
-    return this.http.get<AnomalyAlertPage>(`${this.baseUrl}/alerts`, { params });
+    return this.http.get<AnomalyAlertPage>(API_ENDPOINTS.anomaly.alerts, { params });
   }
 
   /** Alertes non acquittées — pour le badge */
   getUnreadAlerts(): Observable<AnomalyAlert[]> {
-    return this.http.get<AnomalyAlert[]>(`${this.baseUrl}/alerts/unread`);
+    return this.http.get<AnomalyAlert[]>(API_ENDPOINTS.anomaly.alertsUnread);
   }
 
   /** Acquitte une alerte */
   acknowledge(id: number): Observable<void> {
-    return this.http.put<void>(`${this.baseUrl}/alerts/${id}/ack`, null);
+    return this.http.put<void>(API_ENDPOINTS.anomaly.alertAck(id), null);
   }
 }
-
