@@ -1,0 +1,57 @@
+<div class="globe-wrapper">
+
+  <!-- Conteneur CesiumJS -->
+  <div #cesiumContainer class="cesium-container">
+    @if (loading) {
+      <div class="globe-loading">
+        <span>🌍 Chargement du globe 3D…</span>
+      </div>
+    }
+    @if (error) {
+      <div class="globe-error">⚠ {{ error }}</div>
+    }
+  </div>
+
+  <!-- Panneau de contrôle superposé -->
+  <div class="globe-controls">
+
+    <!-- Boutons de navigation -->
+    <div class="nav-bar">
+      <span class="logo">OrbitWatch</span>
+      <a routerLink="/map" class="nav-btn">Carte 2D</a>
+      <a routerLink="/conjunction" class="nav-btn">Conjunctions</a>
+    </div>
+
+    <!-- Toggles couches -->
+    <div class="layers-panel">
+      <span class="panel-title">Couches</span>
+
+      <button class="layer-btn" [class.active]="showStations" (click)="toggleStations()">
+        Satellites
+        @if (stationCount > 0) { <span class="badge">{{ stationCount }}</span> }
+      </button>
+
+      <button class="layer-btn layer-btn--debris" [class.active]="showDebris" (click)="toggleDebris()">
+        Débris
+        @if (debrisCount > 0) { <span class="badge">{{ debrisCount }}</span> }
+      </button>
+
+      <button class="layer-btn layer-btn--conjunction" [class.active]="showConjunctions" (click)="toggleConjunctions()">
+        Conjunctions
+        @if (conjunctionCount > 0) { <span class="badge badge--alert">{{ conjunctionCount }}</span> }
+      </button>
+    </div>
+
+    <!-- Légende débris -->
+    @if (showDebris && debrisCount > 0) {
+      <div class="legend">
+        <span class="legend-title">Altitude débris</span>
+        <span class="legend-item"><span class="dot dot--green"></span> &lt; 600 km</span>
+        <span class="legend-item"><span class="dot dot--orange"></span> 600–1200 km</span>
+        <span class="legend-item"><span class="dot dot--red"></span> &gt; 1200 km</span>
+      </div>
+    }
+
+  </div>
+</div>
+

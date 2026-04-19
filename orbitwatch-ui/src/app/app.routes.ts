@@ -11,5 +11,7 @@ export const routes: Routes = [
   { path: 'conjunction',                component: ConjunctionPageComponent },
   // IMPORTANT : route statique 'byname' AVANT la route paramétrique ':noradId'
   { path: 'satellite/byname/:name',     component: SatelliteProfilePageComponent },
-  { path: 'satellite/:noradId',         component: SatelliteProfilePageComponent }
+  { path: 'satellite/:noradId',         component: SatelliteProfilePageComponent },
+  // Globe 3D — lazy-loadé pour isoler le bundle CesiumJS (~10 Mo) du bundle initial
+  { path: 'globe', loadComponent: () => import('./pages/globe-page/globe-page.component').then(m => m.GlobePageComponent) }
 ];

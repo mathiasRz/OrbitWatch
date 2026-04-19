@@ -473,4 +473,61 @@ Développer une plateforme web de surveillance spatiale permettant de :
 *`ConjunctionScanJob`* (commentaire enrichi)
 - Javadoc de `scan()` précise explicitement le garde-fou volume : `"debris"` (~5 000 objets) exclu de `scannedCatalogs` → O(n²) évité
 
+---
+
+### 2026-04-19 (suite)
+**Milestone 5 — Feature B : Globe 3D CesiumJS (étapes 5.5 + 5.6)**
+
+#### Étape 5.5 — Intégration CesiumJS dans Angular 21 / Esbuild
+
+*Installation*
+- `npm install cesium@1.140.0`
+
+*`angular.json`* (modifié)
+- Ajout des 4 dossiers assets CesiumJS copiés vers `/cesium/` au build : `Workers/`, `Assets/`, `Widgets/`, `ThirdParty/` (nécessaires pour les web workers de propagation et le rendu)
+- `allowedCommonJsDependencies` : ajout `"cesium"` (supprime les warnings Esbuild)
+- Budgets portés à `maximumWarning: 2MB / maximumError: 5MB` (bundle CesiumJS ~10 Mo en lazy chunk)
+
+*`styles.scss`*
+- Import CSS widgets CesiumJS : `@import 'cesium/Build/Cesium/Widgets/widgets.css'`
+
+*`app.routes.ts`*
+- Route `/globe` lazy-loadée : `loadComponent: () => import(...GlobePageComponent)` — bundle Cesium isolé dans un chunk séparé, ne pénalise pas le chargement initial
+
+*Problème technique résolu — `UrlTemplateImageryProvider`*
+- `OpenStreetMapImageryProvider.fromUrl()` n'existe pas dans CesiumJS 1.140
+- Solution : `UrlTemplateImageryProvider` avec template `https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png` et sous-domaines `['a','b','c']` — API stable depuis 1.104
+
+*Problème technique résolu — Import dynamique CesiumJS + Esbuild*
+- `window.CESIUM_BASE_URL = '/cesium/'` doit être défini AVANT l'évaluation du module Cesium (même raison que `window.L = L` pour leaflet.heat)
+- Solution : `await import('cesium')` dans `ngAfterViewInit()` à l'intérieur de `NgZone.runOutsideAngular()` — Esbuild isole le chunk ET la variable globale est définie juste avant
+
+#### Étape 5.6 — GlobeComponent (satellites + débris + conjunctions 3D)
+
+*Nouveaux fichiers*
+- `globe.service.ts` : façade des 3 appels API (`getStations()`, `getDebris()`, `getConjunctionAlerts()`) — wrapping de `OrbitService` et `ConjunctionService`
+- `globe.component.ts/html/scss` : composant principal
+- `globe-page.component.ts` : page conteneur lazy-loadée
+
+*3 couches CesiumJS toggleables*
+
+| Couche | Technique | Comportement |
+|---|---|---|
+| **Satellites** | `CustomDataSource` + `billboard` SVG + `label` | Polling 60 s, `GET /orbit/positions?catalog=stations` |
+| **Débris** | `PointPrimitiveCollection` (~5 000 pts) | Chargement unique, `GET /orbit/positions?catalog=debris`, couleur altitude : vert < 600 / orange 600-1200 / rouge > 1200 km |
+| **Conjunctions** | `Polyline` 3D dans `CustomDataSource` | `GET /conjunction/alerts`, arc entre les 2 satellites au TCA, couleur distance : rouge < 1 km / orange 1-5 / jaune > 5 km |
+
+*Points techniques clés*
+- `PointPrimitiveCollection` obligatoire pour les débris — `EntityCollection` avec 5 000 entités < 10 FPS
+- `NgZone.runOutsideAngular()` pour tout le rendu CesiumJS, `NgZone.run()` uniquement pour les updates de propriétés Angular (compteurs, états)
+- `viewer.destroy()` dans `ngOnDestroy()` — prévient les memory leaks lors de la navigation Angular
+- `Ion.defaultAccessToken = ''` — pas de token payant, imagerie OSM gratuite
+- `EllipsoidTerrainProvider` — terrain plat WGS84, pas de terrain payant Cesium World Terrain
+
+*Navigation*
+- Lien "Globe 3D" ajouté dans la topbar de `MapPageComponent`
+- Boutons "Carte 2D" et "Conjunctions" dans la topbar du globe (navigation croisée)
+- Panneau de contrôle superposé en overlay CSS avec `pointer-events: none` (les clics passent vers CesiumJS par défaut)
+- Légende de couleur des débris affichée quand la couche est active
+
 

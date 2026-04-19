@@ -27,13 +27,34 @@
               {
                 "glob": "**/*",
                 "input": "public"
+              },
+              {
+                "glob": "**/*",
+                "input": "node_modules/cesium/Build/Cesium/Workers",
+                "output": "cesium/Workers"
+              },
+              {
+                "glob": "**/*",
+                "input": "node_modules/cesium/Build/Cesium/Assets",
+                "output": "cesium/Assets"
+              },
+              {
+                "glob": "**/*",
+                "input": "node_modules/cesium/Build/Cesium/Widgets",
+                "output": "cesium/Widgets"
+              },
+              {
+                "glob": "**/*",
+                "input": "node_modules/cesium/Build/Cesium/ThirdParty",
+                "output": "cesium/ThirdParty"
               }
             ],
             "styles": [
               "src/styles.scss"
             ],
             "allowedCommonJsDependencies": [
-              "leaflet.heat"
+              "leaflet.heat",
+              "cesium"
             ]
           },
           "configurations": {
@@ -41,8 +62,8 @@
               "budgets": [
                 {
                   "type": "initial",
-                  "maximumWarning": "500kB",
-                  "maximumError": "1MB"
+                  "maximumWarning": "2MB",
+                  "maximumError": "5MB"
                 },
                 {
                   "type": "anyComponentStyle",
