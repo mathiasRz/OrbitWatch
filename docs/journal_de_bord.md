@@ -391,3 +391,86 @@ Développer une plateforme web de surveillance spatiale permettant de :
 
 *Étape 5.2 — Dépendances Maven Spring AI*
 - Starters ajoutés dans `pom.xml` : `spring-ai-starter-model-ollama` et `spring-ai-starter-vector-store-pgvector` (nouveaux GAV Spring AI 2.x, version gérée par le BOM 2.0.0-M4)
+
+---
+
+### 2026-04-19
+**Milestone 5 — Feature A : Heatmap débris (étapes 5.3, 5.4 + infrastructure debris)**
+
+#### Étape 5.3 — Backend heatmap orbitale
+
+*Nouveau DTO*
+- `HeatmapCell` (record, `dto/`) : `latBandDeg`, `altBandKm`, `count` — représente une cellule de densité orbitale
+
+*`HeatmapController`*
+- `GET /api/v1/orbit/heatmap?catalog=debris&altMin=0&altMax=2000`
+- Logique sans SGP4 : utilise `OrbitalElementsExtractor` (Keplériens statiques) sur chaque TLE du catalogue
+- Agrégation en cellules : `latBand = round(inclinaison/5)*5`, `altBand = round(altPérigée/50)*50`
+- **Correction orbites rétrogrades** : inclinaison > 90° → `effectiveInclination = 180° - inclinaison` (ex : Fengyun à 98° → 82° → latBand 80°, pas 100° hors carte)
+- Cap à 85° (limite projection Web Mercator Leaflet)
+- Filtrage par `altMin`/`altMax`, tri par count décroissant
+- Skip silencieux si TLE malformé + log WARN si > 5% d'échecs
+
+*Tests — `HeatmapControllerTest` (12 tests MockMvc)*
+- Cas nominaux : 200 OK, JSON correct, paramètre `catalog=debris` par défaut
+- Filtrage altitude : `altMin`/`altMax` filtrent correctement, aucun match → liste vide
+- Calcul latBand : orbite directe 74°→75°, **rétrograde 98°→80°**, cap 85°
+- Tri et agrégation : tri par count desc, 2 objets même cellule → count=2
+- Robustesse : TLE malformé → skip silencieux, tous malformés → liste vide (pas de 500)
+
+#### Infrastructure débris — `FetchDebrisTleJob`
+
+*Problème résolu* : CelesTrak ne propose pas de groupe `"debris"` unique — les catalogues de débris ont des noms spécifiques (`fengyun-1c-debris`, `iridium-33-debris`, `cosmos-2251-debris`)
+
+*`FetchDebrisTleJob`* (nouveau `job/`)
+- `@ConditionalOnProperty(tle.debris.enabled=true, matchIfMissing=true)`
+- `@Scheduled(initialDelay=5000, fixedDelayString=${tle.refresh.delay-ms})` — après `FetchTleJob`
+- Télécharge 3 groupes CelesTrak séparément et les **fusionne** sous l'alias logique `"debris"` dans `TleService`
+  - `fengyun-1c-debris`  : ASAT chinois 2007, ~3 000 fragments, ~800 km / 98°
+  - `iridium-33-debris`  : Collision 2009, ~600 fragments, ~780 km / 86°
+  - `cosmos-2251-debris` : Collision 2009 (Cosmos 2251), ~1 500 fragments
+- Résilient par groupe : un groupe KO n'empêche pas les autres d'être chargés
+- Publie `TleCatalogRefreshedEvent("debris", ...)` → filtré par `OrbitalHistoryJob` (garde-fou 5.11 ✅) et ignoré par `ConjunctionScanJob` (scan sur `scannedCatalogs=stations,active` uniquement ✅)
+
+*`application.properties`* mis à jour
+- `tle.celestrak.catalogs=stations` — `"debris"` retiré (groupe invalide CelesTrak)
+- Ajout `tle.debris.enabled=true` et `tle.debris.sources=fengyun-1c-debris,iridium-33-debris,cosmos-2251-debris`
+
+*`application-test.properties`*
+- `tle.debris.enabled=false` — évite les appels HTTP CelesTrak en test
+
+*Tests — `FetchDebrisTleJobTest` (8 tests Mockito purs)*
+- Fusion : 2 groupes OK → TLEs fusionnés, 1 seul event publié avec `catalogName="debris"`
+- Alias : `parseTle3Lines` appelé avec `"debris"` (jamais avec le nom du groupe source)
+- TleService : clé `"debris"` bien mise à jour dans le catalogue
+- Résilience : 1 groupe KO, 1 groupe vide, tous KO → pas d'exception, pas d'event
+- Garde-fous : `catalogName` de l'event = `"debris"` (filtrable par `OrbitalHistoryJob`)
+- Sources vides `""` → aucun appel CelesTrak, aucun event
+
+#### Étape 5.4 — Frontend overlay heatmap Leaflet
+
+*Nouveaux fichiers*
+- `heatmap-cell.model.ts` : interface TypeScript `HeatmapCell { latBandDeg, altBandKm, count }`
+- `debris-heatmap.service.ts` : `getHeatmap(catalog, altMin, altMax)` → `Observable<HeatmapCell[]>`
+
+*`MapLiveComponent`* (modifié)
+- Import `leaflet.heat` comme side-effect (plugin s'enregistre sur `window.L`)
+- Bouton toggle dans la status bar (états : OFF / loading ⏳ / ON avec couleur orange)
+- `toggleHeatmap()` → `loadHeatmap()` si inactif, `removeHeatLayer()` si actif
+- `renderHeatLayer(cells)` : réplique chaque cellule toutes les 20° de longitude pour créer des **bandes horizontales visibles** (proxy de densité, pas des positions réelles) + bandes symétriques Nord ET Sud
+- Gradient cyan→orange→rouge selon la densité, `minOpacity=0.3`
+- Feedback utilisateur si catalogue vide (message d'erreur dans la status bar)
+
+*Résolution technique `leaflet.heat` + Esbuild (Angular 21)*
+- Problème : `leaflet-heat.js` utilise `window.L` comme global, mais Leaflet est importé comme module ES dans Angular → `L` absent de `window` au moment où le plugin s'exécute
+- Solution : exposition explicite dans `main.ts` avant le bootstrap : `(window as any)['L'] = L` — garantit que `window.L` est défini avant tout chargement de composant
+- `angular.json` : `allowedCommonJsDependencies: ["leaflet.heat"]`
+
+*Centralisation des endpoints API*
+- Nouveau fichier `src/app/config/api-endpoints.ts` : constante `API_ENDPOINTS` avec toutes les URLs groupées par domaine (orbit, tle, orbitalHistory, satellite, conjunction, anomaly)
+- Les 5 services Angular existants mis à jour pour utiliser `API_ENDPOINTS` (suppression des `baseUrl` hardcodées)
+
+*`ConjunctionScanJob`* (commentaire enrichi)
+- Javadoc de `scan()` précise explicitement le garde-fou volume : `"debris"` (~5 000 objets) exclu de `scannedCatalogs` → O(n²) évité
+
+

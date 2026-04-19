@@ -14,6 +14,22 @@
         <span class="refresh-hint">rafraîchi toutes les 60 s</span>
       </span>
     }
+
+    <!-- Toggle heatmap débris -->
+    <button
+      class="heatmap-toggle"
+      [class.active]="heatmapActive"
+      [disabled]="heatmapLoading"
+      (click)="toggleHeatmap()"
+      title="Afficher/masquer la densité des débris spatiaux">
+      @if (heatmapLoading) {
+        ⏳
+      } @else if (heatmapActive) {
+         Heatmap ON
+      } @else {
+         Heatmap débris
+      }
+    </button>
   </div>
 
   <!-- Carte Leaflet -->

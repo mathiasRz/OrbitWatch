@@ -4,9 +4,12 @@ import {
 } from '@angular/core';
 import { DatePipe } from '@angular/common';
 import * as L from 'leaflet';
+import 'leaflet.heat';
 import { interval, Subscription, switchMap, startWith, catchError, of } from 'rxjs';
 import { OrbitService } from '../../services/orbit.service';
+import { DebrisHeatmapService } from '../../services/debris-heatmap.service';
 import { SatellitePosition } from '../../models/satellite-position.model';
+import { HeatmapCell } from '../../models/heatmap-cell.model';
 import { Router } from '@angular/router';
 
 /** Intervalle de refresh de la carte live en millisecondes */
@@ -26,18 +29,22 @@ export class MapLiveComponent implements AfterViewInit, OnDestroy {
   /** Émet le nom du satellite quand l'utilisateur clique "Voir ground track" */
   readonly satelliteSelected = output<string>();
 
-  private readonly orbitService = inject(OrbitService);
-  private readonly router       = inject(Router);
-  private readonly cdr          = inject(ChangeDetectorRef);
+  private readonly orbitService       = inject(OrbitService);
+  private readonly heatmapService     = inject(DebrisHeatmapService);
+  private readonly router             = inject(Router);
+  private readonly cdr                = inject(ChangeDetectorRef);
 
   private map?: L.Map;
   private markerLayer?: L.LayerGroup;
+  private heatLayer?: any;
   private refreshSub?: Subscription;
 
-  satelliteCount = 0;
+  satelliteCount   = 0;
   lastRefresh: Date | null = null;
-  loading = true;
+  loading          = true;
   error: string | null = null;
+  heatmapActive    = false;
+  heatmapLoading   = false;
 
   ngAfterViewInit(): void {
     this.initMap();
@@ -48,6 +55,86 @@ export class MapLiveComponent implements AfterViewInit, OnDestroy {
     this.refreshSub?.unsubscribe();
     this.map?.remove();
   }
+
+  // ── Toggle heatmap ────────────────────────────────────────────────────────
+
+  toggleHeatmap(): void {
+    if (this.heatmapActive) {
+      this.removeHeatLayer();
+      this.heatmapActive = false;
+      this.cdr.markForCheck();
+    } else {
+      this.loadHeatmap();
+    }
+  }
+
+  private loadHeatmap(): void {
+    this.heatmapLoading = true;
+    this.cdr.markForCheck();
+
+    this.heatmapService.getHeatmap().pipe(
+      catchError(err => {
+        console.error('[MapLive] Erreur heatmap :', err);
+        this.heatmapLoading = false;
+        this.error = `Heatmap indisponible : ${err.status ?? ''} ${err.message}`;
+        this.cdr.markForCheck();
+        return of([] as HeatmapCell[]);
+      })
+    ).subscribe(cells => {
+      this.heatmapLoading = false;
+      if (cells.length === 0) {
+        console.warn('[MapLive] Heatmap vide — le catalogue debris est-il chargé côté backend ? (tle.celestrak.catalogs=stations,debris)');
+        this.error = 'Heatmap vide — catalogue debris non chargé (redémarrer le backend)';
+        this.cdr.markForCheck();
+        return;
+      }
+      this.error = null;
+      this.renderHeatLayer(cells);
+      this.heatmapActive = true;
+      this.cdr.markForCheck();
+    });
+  }
+
+  private renderHeatLayer(cells: HeatmapCell[]): void {
+    if (!this.map) return;
+    this.removeHeatLayer();
+
+    // Chaque cellule représente une BANDE de latitude (Nord ET Sud, les orbites sont symétriques).
+    // On réplique chaque point toutes les 20° de longitude pour rendre la bande visible
+    // sur toute la largeur de la carte (proxy de densité, pas des positions réelles).
+    const STEP_LNG = 20;
+    const points: [number, number, number][] = [];
+
+    for (const c of cells) {
+      for (let lng = -180; lng <= 180; lng += STEP_LNG) {
+        // Bande Nord  (ex : +75°)
+        points.push([c.latBandDeg, lng, c.count]);
+        // Bande Sud symétrique (ex : -75°) — même densité, orbite couvre les deux hémisphères
+        if (c.latBandDeg !== 0) {
+          points.push([-c.latBandDeg, lng, c.count]);
+        }
+      }
+    }
+
+    const maxCount = Math.max(...cells.map(c => c.count), 1);
+
+    this.heatLayer = (L as any).heatLayer(points, {
+      radius:     30,
+      blur:       20,
+      max:        maxCount,
+      minOpacity: 0.3,
+      gradient:   { 0.3: '#00d4ff', 0.6: '#ffa500', 1.0: '#ff0000' }
+    }).addTo(this.map);
+  }
+
+  private removeHeatLayer(): void {
+    if (this.heatLayer && this.map) {
+      this.map.removeLayer(this.heatLayer);
+      this.heatLayer = undefined;
+    }
+  }
+
+  // ── Carte + polling satellites ─────────────────────────────────────────────
 
   private initMap(): void {
     this.map = L.map(this.mapContainer.nativeElement, {
@@ -62,8 +149,6 @@ export class MapLiveComponent implements AfterViewInit, OnDestroy {
     }).addTo(this.map);
 
     this.markerLayer = L.layerGroup().addTo(this.map);
-
-    // Laisse le layout CSS se stabiliser avant que Leaflet calcule les dimensions
     setTimeout(() => this.map?.invalidateSize(), 0);
   }
 
@@ -95,12 +180,7 @@ export class MapLiveComponent implements AfterViewInit, OnDestroy {
   }
 
   private renderMarkers(positions: SatellitePosition[]): void {
-    if (!this.map || !this.markerLayer) {
-      console.warn('[MapLive] renderMarkers appelé avant initMap — ignoré');
-      return;
-    }
-
-    console.log(`[MapLive] Rendu de ${positions.length} satellites`);
+    if (!this.map || !this.markerLayer) return;
     this.markerLayer.clearLayers();
 
     for (const sat of positions) {
@@ -150,7 +230,7 @@ export class MapLiveComponent implements AfterViewInit, OnDestroy {
 
   private onPopupOpen(sat: SatellitePosition, marker: L.Marker): void {
     setTimeout(() => {
-      const safeName  = sat.name.replace(/\s/g, '_');
+      const safeName = sat.name.replace(/\s/g, '_');
       document.getElementById(`track-btn-${safeName}`)?.addEventListener('click', () => {
         this.satelliteSelected.emit(sat.name);
         marker.closePopup();

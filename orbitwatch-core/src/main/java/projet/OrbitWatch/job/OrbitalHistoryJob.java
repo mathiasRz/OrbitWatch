@@ -51,8 +51,9 @@ public class OrbitalHistoryJob {
 
     public OrbitalHistoryJob(OrbitalElementsExtractor extractor,
                               OrbitalHistoryRepository repository) {
-        this.extractor  = extractor;
-        this.repository = repository;
+        this.extractor        = extractor;
+        this.repository       = repository;
+        this.excludedCatalogs = new ArrayList<>();
     }
 
     /**

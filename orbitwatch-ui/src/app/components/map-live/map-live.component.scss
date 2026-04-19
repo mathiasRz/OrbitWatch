@@ -22,6 +22,23 @@
   display: flex;
   align-items: center;
   flex-shrink: 0;
+  gap: 1rem;
+
+  .heatmap-toggle {
+    margin-left: auto;
+    padding: 0.25rem 0.75rem;
+    background: #1e1e30;
+    color: #aaa;
+    border: 1px solid #3a3a5a;
+    border-radius: 4px;
+    cursor: pointer;
+    font-size: 0.75rem;
+    transition: background 0.2s, color 0.2s;
+
+    &:hover:not(:disabled) { background: #2a2a45; color: #fff; }
+    &.active { background: #cc4400; color: #fff; border-color: #ff6622; }
+    &:disabled { opacity: 0.5; cursor: wait; }
+  }
 }
 
 .status-ok      { color: #00d4ff; }
