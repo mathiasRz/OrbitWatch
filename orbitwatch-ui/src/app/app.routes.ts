@@ -13,5 +13,7 @@ export const routes: Routes = [
   { path: 'satellite/byname/:name',     component: SatelliteProfilePageComponent },
   { path: 'satellite/:noradId',         component: SatelliteProfilePageComponent },
   // Globe 3D — lazy-loadé pour isoler le bundle CesiumJS (~10 Mo) du bundle initial
-  { path: 'globe', loadComponent: () => import('./pages/globe-page/globe-page.component').then(m => m.GlobePageComponent) }
+  { path: 'globe', loadComponent: () => import('./pages/globe-page/globe-page.component').then(m => m.GlobePageComponent) },
+  // Assistant IA RAG — lazy-loadé
+  { path: 'chat', loadComponent: () => import('./pages/chat-page/chat-page.component').then(m => m.ChatPageComponent) }
 ];

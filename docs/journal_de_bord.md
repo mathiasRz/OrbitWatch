@@ -530,4 +530,41 @@ Développer une plateforme web de surveillance spatiale permettant de :
 - Panneau de contrôle superposé en overlay CSS avec `pointer-events: none` (les clics passent vers CesiumJS par défaut)
 - Légende de couleur des débris affichée quand la couche est active
 
+---
+
+### 2026-05-03
+**Milestone 5 — Feature C : Assistant RAG v1 Spring AI (étapes 5.7 à 5.10)**
+
+#### Étape 5.7 — `OrbitWatchIngestionService` (indexation PgVector)
+
+- `@EventListener @Async` sur `TleCatalogRefreshedEvent` — s'exécute en parallèle de `OrbitalHistoryJob` sans dépendance
+- Filtre : seuls les catalogues `rag.ingestion.catalogs` (stations, active) sont indexés — `debris` exclu
+- Pour chaque satellite : crée un `Document` Spring AI depuis `SatelliteSummary.textSummary()` avec metadata `noradId`, `name`, `catalog`
+- Stratégie upsert : suppression par filtre metadata `noradId` avant réindexation pour éviter les doublons
+- Guard `rag.ingestion.enabled=false` dans `application-test.properties`
+- `OrbitWatchIngestionServiceTest` (Mockito pur) : 3 TLEs → 3 adds, catalogue debris → 0 add, liste vide → 0 add, upsert → delete appelé avant add
+
+#### Étape 5.8 — `OrbitWatchRagService` (pipeline RAG)
+
+- Seuil de similarité cosinus **0.55** (au lieu de `SIMILARITY_THRESHOLD_ACCEPT_ALL`) — évite d'injecter un contexte satellite non pertinent pour des questions hors-sujet
+- Contexte injecté conditionnellement : si aucun document ne dépasse le seuil, `{context}` est vide et le LLM répond librement
+- `OrbitWatchRagServiceTest` (Mockito pur, 4 tests) : contexte injecté avec 2 docs, question vide → Flux vide, question nulle → Flux vide, aucun doc → prompt sans contexte satellite
+
+#### Étape 5.9 — `ChatController` (SSE Spring MVC)
+
+- `POST /api/v1/ai/chat` + `GET /api/v1/ai/chat/health`
+- `SseEmitter` avec timeout configurable (`rag.sse.timeout-ms=120000`)
+- `ragTaskExecutor` (pool dédié) via `@Qualifier` — évite le self-invocation proxy Spring
+- `onErrorResume` sur le `Flux` : Ollama indisponible → message SSE lisible au lieu d'un 500
+- `ChatControllerTest` (MockMvc, 5 tests) : SSE 200, corps vide → 400, question vide → 400, exception service → 200 sans 500 non géré
+
+#### Étape 5.10 — `ChatComponent` Angular (client SSE)
+
+- `ChatService` : parsing SSE robuste avec **buffer** inter-chunks TCP — les événements incomplets sont conservés jusqu'au prochain chunk (`split('\n\n')` sur les événements complets)
+- `line.slice('data:'.length)` à la place de `.replace + .trim()` — préserve les espaces en début de token (évitait la fusion de mots : `"Salutations.Comment"`)
+- Tokens multi-lignes reconstitués par `join('\n')` des lignes `data:` d'un même événement
+- `ChatComponent` : accumulation des tokens dans `currentToken`, consolidation en message assistant à la complétion du stream, `ChangeDetectionStrategy.OnPush`
+- `system-prompt.txt` simplifié : contexte injecté uniquement si présent, LLM non contraint pour les questions hors-sujet (corrigeait les réponses tronquées/incohérentes avec gemma3:4b)
+
+
 

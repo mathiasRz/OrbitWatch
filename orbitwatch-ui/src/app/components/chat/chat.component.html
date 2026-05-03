@@ -1,0 +1,62 @@
+<div class="chat-wrapper">
+  <!-- En-tête -->
+  <div class="chat-header">
+    <span class="chat-icon">🤖</span>
+    <div>
+      <h2>Assistant IA OrbitWatch</h2>
+      <p class="chat-subtitle">Posez vos questions sur les satellites en orbite</p>
+    </div>
+    <button class="btn-clear" (click)="clearHistory()" title="Effacer la conversation">🗑️</button>
+  </div>
+
+  <!-- Zone de messages -->
+  <div class="chat-messages">
+    @if (messages.length === 0 && !isStreaming) {
+      <div class="chat-empty">
+        <p>💬 Commencez par poser une question, par exemple :</p>
+        <ul>
+          <li>« Quelle est l'altitude de l'ISS ? »</li>
+          <li>« Quels satellites sont en orbite polaire ? »</li>
+          <li>« Donne-moi les informations sur Tiangong »</li>
+        </ul>
+      </div>
+    }
+    @for (msg of messages; track $index) {
+      <div class="message"
+           [class.message-user]="msg.role === 'user'"
+           [class.message-assistant]="msg.role === 'assistant'">
+        <span class="message-avatar">{{ msg.role === 'user' ? '👤' : '🤖' }}</span>
+        <div class="message-bubble">
+          <p class="message-content">{{ msg.content }}</p>
+        </div>
+      </div>
+    }
+    @if (isStreaming || currentToken) {
+      <div class="message message-assistant streaming">
+        <span class="message-avatar">🤖</span>
+        <div class="message-bubble">
+          <p class="message-content">{{ currentToken }}<span class="cursor">▌</span></p>
+        </div>
+      </div>
+    }
+    @if (errorMessage) {
+      <div class="chat-error"><span>⚠️ {{ errorMessage }}</span></div>
+    }
+  </div>
+
+  <!-- Zone de saisie -->
+  <div class="chat-input-area">
+    <textarea
+      class="chat-input"
+      [(ngModel)]="question"
+      (keydown)="onKeydown($event)"
+      placeholder="Posez votre question… (Entrée pour envoyer, Maj+Entrée pour nouvelle ligne)"
+      [disabled]="isStreaming"
+      rows="2">
+    </textarea>
+    <button class="btn-send" (click)="send()" [disabled]="isStreaming || !question.trim()">
+      @if (isStreaming) { <span>⏳</span> } @else { <span>Envoyer ➤</span> }
+    </button>
+  </div>
+</div>
+

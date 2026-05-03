@@ -1,0 +1,15 @@
+services:
+  postgres:
+    image: pgvector/pgvector:pg15
+    container_name: orbitwatch-db
+    environment:
+      POSTGRES_DB: orbitwatch
+      POSTGRES_USER: orbitwatch
+      POSTGRES_PASSWORD: orbitwatch
+    ports:
+      - "5432:5432"
+    volumes:
+      - postgres_data:/var/lib/postgresql/data
+
+volumes:
+  postgres_data:

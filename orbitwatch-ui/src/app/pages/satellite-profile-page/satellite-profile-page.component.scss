@@ -136,6 +136,19 @@
   &:hover { background: #1e3a50; }
 }
 
+.btn-ai {
+  background: #1a1e3a;
+  border: 1px solid #3a3a6c;
+  color: #a0a0ff;
+  border-radius: 4px;
+  padding: 5px 12px;
+  font-size: 0.8rem;
+  cursor: pointer;
+  text-decoration: none;
+  transition: background 0.2s;
+  &:hover { background: #252560; }
+}
+
 /* Cards */
 .card {
   background: #12121a;
