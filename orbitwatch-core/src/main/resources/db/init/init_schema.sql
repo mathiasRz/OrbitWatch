@@ -78,3 +78,15 @@ CREATE TABLE IF NOT EXISTS vector_store (
 CREATE INDEX IF NOT EXISTS idx_vector_store_embedding
     ON vector_store USING hnsw (embedding vector_cosine_ops);
 
+-- ── V6 : chat_history (mémoire conversationnelle agent IA) ───────────────────
+CREATE TABLE IF NOT EXISTS chat_history (
+    id         BIGSERIAL    PRIMARY KEY,
+    session_id VARCHAR(36)  NOT NULL,
+    role       VARCHAR(20)  NOT NULL,    -- 'USER' | 'ASSISTANT' | 'SYSTEM'
+    content    TEXT         NOT NULL,
+    created_at TIMESTAMPTZ  NOT NULL DEFAULT now()
+);
+
+CREATE INDEX IF NOT EXISTS idx_chat_history_session
+    ON chat_history (session_id, id);
+

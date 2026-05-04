@@ -582,3 +582,26 @@ Développer une plateforme web de surveillance spatiale permettant de :
 
 **Milestone 5 — TERMINÉ** (étapes 5.1 → 5.12)
 
+---
+
+### 2026-05-04
+**Milestone 6 — Lancement : Agent IA + Mémoire conversationnelle + Ground track 3D**
+- Plan M6 rédigé dans `plan_milestone6.md`
+- Objectifs : agent Spring AI Tool Calling opérationnel, mémoire conversationnelle persistante par session, ground track 3D sur le globe CesiumJS
+- Aucune nouvelle dépendance Maven — tout est dans le BOM Spring AI 2.0.0-M5 déjà importé
+
+#### Étape 6.1 — Migration Flyway V6 : table `chat_history`
+
+- `V6__create_chat_history.sql` : table `chat_history (id, session_id, role, content, created_at)` + index composite `(session_id, id)` (tri par id plus robuste que created_at en cas de résolution milliseconde insuffisante)
+- `init_schema.sql` : section V6 ajoutée (cohérence avec le script d'initialisation manuelle)
+
+#### Étape 6.2 — `JdbcChatMemory` (implémentation `ChatMemory`)
+
+- `JdbcChatMemory` (`@Component`, implémente `org.springframework.ai.chat.memory.ChatMemory`) : persistance JDBC des échanges de chat via `JdbcTemplate` sur la table `chat_history`
+- `add()` → INSERT par message (role : USER / ASSISTANT / SYSTEM)
+- `get(conversationId, lastN)` → `ORDER BY id DESC LIMIT ?` puis inversion — fiable même si timestamps identiques (H2, transactions rapides)
+- `clear(conversationId)` → DELETE complet de la session
+- Mapping bidirectionnel `MessageType` ↔ `String role` ; roles inconnus ignorés avec log WARN
+- `JdbcChatMemoryTest` (`@DataJpaTest` + `@Import(JdbcChatMemory.class)`) : 8 tests — ordre chronologique, lastN, isolation sessions, clear, 3 rôles reconstitués, liste vide
+
+
