@@ -223,6 +223,9 @@ export class MapLiveComponent implements AfterViewInit, OnDestroy {
           <button class="popup-btn popup-btn-profile" id="profile-btn-${safeName}">
             Profil
           </button>
+          <button class="popup-btn popup-btn-globe" id="globe-btn-${safeName}">
+            🌍 Globe 3D
+          </button>
         </div>
       </div>
     `;
@@ -237,6 +240,10 @@ export class MapLiveComponent implements AfterViewInit, OnDestroy {
       });
       document.getElementById(`profile-btn-${safeName}`)?.addEventListener('click', () => {
         this.router.navigate(['/satellite', 'byname', sat.name]);
+        marker.closePopup();
+      });
+      document.getElementById(`globe-btn-${safeName}`)?.addEventListener('click', () => {
+        this.router.navigate(['/globe'], { queryParams: { satellite: sat.name } });
         marker.closePopup();
       });
     }, 50);

@@ -1,14 +1,19 @@
 import {
   Component, OnDestroy, AfterViewInit,
-  ViewChild, ElementRef, inject,
+  ViewChild, ElementRef, inject, Input,
   NgZone, ChangeDetectionStrategy, ChangeDetectorRef
 } from '@angular/core';
 import { CommonModule } from '@angular/common';
-import { RouterLink } from '@angular/router';
-import { interval, Subscription, switchMap, startWith, catchError, of } from 'rxjs';
+import { RouterLink, RouterLinkActive } from '@angular/router';
+import { interval, Subscription, switchMap, startWith, catchError, of, combineLatest } from 'rxjs';
 import { GlobeService } from '../../services/globe.service';
 import { SatellitePosition } from '../../models/satellite-position.model';
 import { ConjunctionAlert } from '../../models/conjunction.model';
+import { AlertBadgeComponent, CombinedAlerts } from '../alert-badge/alert-badge.component';
+import { AlertPanelComponent } from '../alert-panel/alert-panel.component';
+import { ConjunctionService } from '../../services/conjunction.service';
+import { AnomalyService } from '../../services/anomaly.service';
+import { AnomalyAlert } from '../../models/satellite.model';
 
 const REFRESH_INTERVAL_MS = 60_000;
 
@@ -19,7 +24,7 @@ type CesiumViewer = any;
 @Component({
   selector: 'app-globe',
   standalone: true,
-  imports: [CommonModule, RouterLink],
+  imports: [CommonModule, RouterLink, RouterLinkActive, AlertBadgeComponent, AlertPanelComponent],
   templateUrl: './globe.component.html',
   styleUrl: './globe.component.scss',
   changeDetection: ChangeDetectionStrategy.OnPush
@@ -27,9 +32,18 @@ type CesiumViewer = any;
 export class GlobeComponent implements AfterViewInit, OnDestroy {
   @ViewChild('cesiumContainer', { static: true }) container!: ElementRef<HTMLDivElement>;
 
+  /** Nom du satellite à cibler via fly-to (passé depuis GlobePageComponent via query param) */
+  @Input() targetSatellite?: string;
+
   private readonly zone        = inject(NgZone);
   private readonly cdr         = inject(ChangeDetectorRef);
   private readonly globeService = inject(GlobeService);
+  private readonly conjunctionService = inject(ConjunctionService);
+  private readonly anomalyService     = inject(AnomalyService);
+
+  // ── Panel alertes ──────────────────────────────────────────────────────────
+  panelOpen    = false;
+  panelAlerts: CombinedAlerts = { conjunctions: [], anomalies: [] };
 
   private viewer?: CesiumViewer;
   private stationsSub?: Subscription;
@@ -186,6 +200,11 @@ export class GlobeComponent implements AfterViewInit, OnDestroy {
     }
 
     this.stationLayer.show = this.showStations;
+
+    // Si un satellite est ciblé (via query param transmis par GlobePageComponent), fly-to
+    if (this.targetSatellite) {
+      this.flyToSatellite(this.targetSatellite);
+    }
   }
 
   private loadDebris(): void {
@@ -277,10 +296,46 @@ export class GlobeComponent implements AfterViewInit, OnDestroy {
     this.conjunctionLayer.show = this.showConjunctions;
   }
 
+  // ── Panel alertes ────────────────────────────────────────────────────────
+
+  openPanel(alerts: CombinedAlerts): void {
+    this.panelAlerts = alerts;
+    this.panelOpen   = true;
+    this.cdr.markForCheck();
+  }
+
+  closePanel(): void {
+    this.panelOpen = false;
+    this.cdr.markForCheck();
+  }
+
+  refreshPanel(): void {
+    combineLatest([
+      this.conjunctionService.getUnreadAlerts().pipe(catchError(() => of([] as ConjunctionAlert[]))),
+      this.anomalyService.getUnreadAlerts().pipe(catchError(() => of([] as AnomalyAlert[])))
+    ]).subscribe(([conjunctions, anomalies]) => {
+      this.panelAlerts = { conjunctions, anomalies };
+      this.cdr.markForCheck();
+    });
+  }
+
+  // ── Navigation vers un satellite ─────────────────────────────────────────
+
+  /** Fly-to vers le satellite ciblé par query param (ex: ?satellite=ISS) */
+  private flyToSatellite(name: string): void {
+    if (!this.viewer || !this.stationLayer || !this.cesium) return;
+    const entity = this.stationLayer.entities.getById(name);
+    if (entity) {
+      this.viewer.flyTo(entity, {
+        duration: 2,
+        offset: new this.cesium.HeadingPitchRange(0, -0.5, 2_000_000)
+      });
+    }
+  }
+
   // ── Toggles couches ───────────────────────────────────────────────────────
 
-  toggleStations(): void {
-    this.showStations = !this.showStations;
+  toggleStations(): void {    this.showStations = !this.showStations;
     if (this.stationLayer) this.stationLayer.show = this.showStations;
     this.cdr.markForCheck();
   }

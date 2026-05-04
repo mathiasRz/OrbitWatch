@@ -15,11 +15,17 @@
   <!-- Panneau de contrôle superposé -->
   <div class="globe-controls">
 
-    <!-- Boutons de navigation -->
+    <!-- Barre de navigation (identique aux autres pages) -->
     <div class="nav-bar">
-      <span class="logo">OrbitWatch</span>
-      <a routerLink="/map" class="nav-btn">Carte 2D</a>
-      <a routerLink="/conjunction" class="nav-btn">Conjunctions</a>
+      <span class="logo">🛰 OrbitWatch</span>
+      <nav class="nav-links">
+        <a routerLink="/map"         class="nav-btn" routerLinkActive="nav-btn--active">🗺️ Carte live</a>
+        <a routerLink="/globe"       class="nav-btn" routerLinkActive="nav-btn--active">🌍 Globe 3D</a>
+        <a routerLink="/orbit"       class="nav-btn" routerLinkActive="nav-btn--active">📡 Ground track</a>
+        <a routerLink="/conjunction" class="nav-btn" routerLinkActive="nav-btn--active">⚠️ Conjunctions</a>
+        <a routerLink="/chat"        class="nav-btn" routerLinkActive="nav-btn--active">🤖 Assistant IA</a>
+      </nav>
+      <app-alert-badge (badgeClicked)="openPanel($any($event))"></app-alert-badge>
     </div>
 
     <!-- Toggles couches -->
@@ -54,4 +60,12 @@
 
   </div>
 </div>
+
+@if (panelOpen) {
+  <app-alert-panel
+    [alerts]="panelAlerts"
+    (close)="closePanel()"
+    (alertsChanged)="refreshPanel()">
+  </app-alert-panel>
+}
 

@@ -25,7 +25,7 @@ Développer une plateforme web de surveillance spatiale permettant de :
 | 2 | Ground track 2D | Terminé | Backend + frontend opérationnels, intégration CelesTrak, carte live multi-satellites |
 | 3 | Détection de rapprochements | Terminé | ConjunctionService + ConjunctionScanJob + BDD (conjunction_alert) + notifications IHM (badge polling 30 s) + page /conjunction + 23 tests |
 | 4 | Analyse d'évolution orbitale | Terminé | Historique orbital (noradId, paramètres Keplériens), règles métier + Z-score Smile ML, page Profil satellite avec graphes Chart.js, badge anomalies |
-| 5 | Surveillance des débris + 3D | En cours | Heatmap orbitale + globe CesiumJS + assistant RAG v1 (Spring AI) |
+| 5 | Surveillance des débris + 3D | **Terminé** | Heatmap orbitale + globe CesiumJS + assistant RAG v1 (Spring AI) + navigation unifiée |
 | 6 | Version vitrine / Agent IA | À venir | Agent autonome Spring AI Tool Calling, polish 3D, SSE, export |
 
 ---
@@ -566,5 +566,19 @@ Développer une plateforme web de surveillance spatiale permettant de :
 - `ChatComponent` : accumulation des tokens dans `currentToken`, consolidation en message assistant à la complétion du stream, `ChangeDetectionStrategy.OnPush`
 - `system-prompt.txt` simplifié : contexte injecté uniquement si présent, LLM non contraint pour les questions hors-sujet (corrigeait les réponses tronquées/incohérentes avec gemma3:4b)
 
+---
 
+### 2026-05-04
+**Milestone 5 — Navigation + polish UI (étape 5.12)**
+
+#### Étape 5.12 — Cohérence de la navigation
+
+- **`orbit-page`** : ajout topbar standard (logo + 5 liens + `routerLinkActive`) — refactor du layout `grid` en `flex-column` + `orbit-body` grid pour accommoder la topbar ; import `RouterLinkActive` dans le composant
+- **`chat-page`** : remplacement de la `<nav>` minimaliste par la topbar standard unifiée ; remplacement des styles `.chat-nav` par `.topbar` cohérent avec les autres pages
+- **`map-live` popup** : ajout d'un bouton "Globe 3D" dans la popup Leaflet naviguant vers `/globe?satellite=NAME`
+- **`globe.component`** : topbar overlay complétée avec tous les liens (Ground track, Assistant IA) ; import `ActivatedRoute` ; lecture du query param `?satellite=` au chargement des stations → `flyTo()` vers l'entité CesiumJS ciblée
+
+**Résultat** : navigation fluide entre toutes les pages de l'application — Carte ↔ Globe ↔ Ground track ↔ Conjunctions ↔ Assistant IA, avec raccourci direct depuis les popups satellites.
+
+**Milestone 5 — TERMINÉ** (étapes 5.1 → 5.12)
 

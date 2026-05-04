@@ -1,9 +1,20 @@
 <div class="orbit-page">
+
+  <!-- Topbar -->
+  <header class="topbar">
+    <span class="logo">🛰 OrbitWatch</span>
+    <nav class="nav-links">
+      <a routerLink="/map"         routerLinkActive="active">🗺️ Carte live</a>
+      <a routerLink="/globe"       routerLinkActive="active">🌍 Globe 3D</a>
+      <a routerLink="/orbit"       routerLinkActive="active">📡 Ground track</a>
+      <a routerLink="/conjunction" routerLinkActive="active">⚠️ Conjunctions</a>
+      <a routerLink="/chat"        routerLinkActive="active">🤖 Assistant IA</a>
+    </nav>
+    <app-alert-badge (badgeClicked)="openPanel($any($event))"></app-alert-badge>
+  </header>
+
+  <div class="orbit-body">
   <aside class="sidebar">
-    <div class="logo">
-      🛰 OrbitWatch
-      <a routerLink="/map" class="back-link">← Carte live</a>
-    </div>
     <app-tle-form [loading]="loading()" (propagate)="onPropagate($event)"></app-tle-form>
     @if (error()) {
       <div class="error-banner">⚠ {{ error() }}</div>
@@ -19,5 +30,14 @@
   <main class="map-wrapper">
     <app-map [track]="track()"></app-map>
   </main>
+  </div>
 </div>
+
+@if (panelOpen) {
+  <app-alert-panel
+    [alerts]="panelAlerts"
+    (close)="closePanel()"
+    (alertsChanged)="refreshPanel()">
+  </app-alert-panel>
+}
 

@@ -7,22 +7,35 @@
   background: #0b0d14;
 }
 
-.chat-nav {
+.topbar {
   display: flex;
-  gap: 20px;
   align-items: center;
-  padding: 10px 24px;
-  background: #10131f;
-  border-bottom: 1px solid #1e2540;
-  font-size: 0.9rem;
+  justify-content: space-between;
+  padding: 0 1.5rem;
+  height: 48px;
+  background: #12121a;
+  border-bottom: 1px solid #2a2a3a;
+  flex-shrink: 0;
+}
+
+.logo {
+  font-size: 1.1rem;
+  font-weight: 700;
+  color: #00d4ff;
+}
+
+.nav-links {
+  display: flex;
+  gap: 1.5rem;
 
   a {
-    color: #6a7591;
+    color: #888;
     text-decoration: none;
-    &:hover { color: #7eb8f7; }
-  }
+    font-size: 0.85rem;
+    transition: color 0.2s;
 
-  .nav-active { color: #7eb8f7; font-weight: 600; }
+    &:hover, &.active { color: #00d4ff; }
+  }
 }
 
 .chat-container {
@@ -35,4 +48,5 @@
   display: flex;
   flex-direction: column;
 }
+
 

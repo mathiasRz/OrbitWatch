@@ -50,29 +50,31 @@
 .nav-bar {
   display: flex;
   align-items: center;
-  gap: 0.75rem;
-  padding: 0.5rem 1rem;
-  background: rgba(10, 10, 26, 0.85);
-  border-bottom: 1px solid #2a2a4a;
-  backdrop-filter: blur(4px);
+  justify-content: space-between;
+  padding: 0 1.5rem;
+  height: 48px;
+  background: rgba(18, 18, 26, 0.9);
+  border-bottom: 1px solid #2a2a3a;
+  backdrop-filter: blur(6px);
 
   .logo {
+    font-size: 1.1rem;
     font-weight: 700;
     color: #00d4ff;
-    margin-right: auto;
+  }
+
+  .nav-links {
+    display: flex;
+    gap: 1.5rem;
   }
 
   .nav-btn {
-    padding: 0.3rem 0.75rem;
-    background: #1a1a2e;
-    color: #aaa;
-    border: 1px solid #3a3a5a;
-    border-radius: 4px;
+    color: #888;
     text-decoration: none;
-    font-size: 0.8rem;
-    transition: background 0.2s, color 0.2s;
+    font-size: 0.85rem;
+    transition: color 0.2s;
 
-    &:hover { background: #2a2a45; color: #fff; }
+    &:hover, &--active { color: #00d4ff; }
   }
 }
 
