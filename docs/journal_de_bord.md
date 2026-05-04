@@ -26,7 +26,7 @@ Développer une plateforme web de surveillance spatiale permettant de :
 | 3 | Détection de rapprochements | Terminé | ConjunctionService + ConjunctionScanJob + BDD (conjunction_alert) + notifications IHM (badge polling 30 s) + page /conjunction + 23 tests |
 | 4 | Analyse d'évolution orbitale | Terminé | Historique orbital (noradId, paramètres Keplériens), règles métier + Z-score Smile ML, page Profil satellite avec graphes Chart.js, badge anomalies |
 | 5 | Surveillance des débris + 3D | **Terminé** | Heatmap orbitale + globe CesiumJS + assistant RAG v1 (Spring AI) + navigation unifiée |
-| 6 | Version vitrine / Agent IA | À venir | Agent autonome Spring AI Tool Calling, polish 3D, SSE, export |
+| 6 | Version vitrine / Agent IA | À venir | Agent Spring AI Tool Calling + mémoire conversationnelle (JdbcChatMemory) + ground track 3D |
 
 ---
 

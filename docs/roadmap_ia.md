@@ -170,8 +170,7 @@ ConjunctionReport analyzeConjunction(String sat1, String sat2) { ... }
 | M3 | Conjunctions + BDD + notifications IHM | fondations données |
 | M4 | Historique orbital + **anomalies ML** (Smile) | 1er module IA |
 | M5 | Débris + 3D CesiumJS + **assistant RAG v1** (Spring AI) | RAG v1 |
-| M6 | **Agent autonome v1** (Spring AI Tool Calling) + polish 3D | Agent |
-| M7 | Agent avancé, manœuvres prédictives, export rapports PDF | full IA |
+| M6 | **Agent autonome v1** (Spring AI Tool Calling) + mémoire conversationnelle + ground track 3D | Agent opérationnel |
 
 ---
 
