@@ -21,6 +21,11 @@ public interface ConjunctionAlertRepository extends JpaRepository<ConjunctionAle
     List<ConjunctionAlert> findByAcknowledgedFalseOrderByTcaAsc();
 
     /**
+     * Alertes détectées après un instant donné, triées par distance croissante.
+     */
+    List<ConjunctionAlert> findByDetectedAtAfterOrderByDistanceKmAsc(java.time.Instant after);
+
+    /**
      * Déduplication par NORAD ID : vérifie si une alerte existe déjà pour cette paire
      * autour d'un TCA donné (fenêtre ±{@code marginMinutes} minutes).
      *

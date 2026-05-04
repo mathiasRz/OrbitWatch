@@ -26,7 +26,7 @@ Développer une plateforme web de surveillance spatiale permettant de :
 | 3 | Détection de rapprochements | Terminé | ConjunctionService + ConjunctionScanJob + BDD (conjunction_alert) + notifications IHM (badge polling 30 s) + page /conjunction + 23 tests |
 | 4 | Analyse d'évolution orbitale | Terminé | Historique orbital (noradId, paramètres Keplériens), règles métier + Z-score Smile ML, page Profil satellite avec graphes Chart.js, badge anomalies |
 | 5 | Surveillance des débris + 3D | **Terminé** | Heatmap orbitale + globe CesiumJS + assistant RAG v1 (Spring AI) + navigation unifiée |
-| 6 | Version vitrine / Agent IA | À venir | Agent Spring AI Tool Calling + mémoire conversationnelle (JdbcChatMemory) + ground track 3D |
+| 6 | Version vitrine / Agent IA | **En cours** | Agent Spring AI Tool Calling (5 tools) + mémoire JDBC (JdbcChatMemory) + sessionId Angular — étapes 6.1→6.6 terminées |
 
 ---
 
@@ -604,4 +604,95 @@ Développer une plateforme web de surveillance spatiale permettant de :
 - Mapping bidirectionnel `MessageType` ↔ `String role` ; roles inconnus ignorés avec log WARN
 - `JdbcChatMemoryTest` (`@DataJpaTest` + `@Import(JdbcChatMemory.class)`) : 8 tests — ordre chronologique, lastN, isolation sessions, clear, 3 rôles reconstitués, liste vide
 
+#### Étape 6.3 — `OrbitWatchTools` : beans `@Tool`
+
+*DTOs records plats créés (`dto/`)*
+- `ConjunctionAlertDto(sat1, sat2, distanceKm, tca)` — tca en String ISO-8601 (évite le problème de sérialisation `Instant`)
+- `OrbitalHistoryDto(fetchedAt, altPerigeeKm, altApogeeKm, inclinationDeg, eccentricity)`
+- `AnomalyAlertDto(satelliteName, type, severity, detectedAt, description)`
+- `ConjunctionSummaryDto(sat1, sat2, eventCount, minDistanceKm, error)` — champ `error` non null si satellite inconnu ou exception
+
+*`ConjunctionAlertRepository`* (modifié)
+- Ajout `findByDetectedAtAfterOrderByDistanceKmAsc(Instant after)` — requis par le tool `getRecentConjunctions`
+
+*`OrbitWatchTools` (`@Component`, sans `@Transactional`)*
+
+| Tool | Retour | Limite | Source |
+|------|--------|--------|--------|
+| `getRecentConjunctions(int hours)` | `List<ConjunctionAlertDto>` | 10 | `ConjunctionAlertRepository.findByDetectedAtAfter…` |
+| `getOrbitalHistory(String name, int days)` | `List<OrbitalHistoryDto>` | 20 | `TleService.resolveUniqueTle()` + `OrbitalHistoryRepository` paginé |
+| `analyzeConjunction(String sat1, String sat2)` | `ConjunctionSummaryDto` | — | `TleService` × 2 + `ConjunctionService.analyze()` |
+| `getUnreadAnomalies()` | `List<AnomalyAlertDto>` | 10 | `AnomalyAlertRepository.findByAcknowledgedFalse…` |
+| `getSatelliteSummary(String name)` | `String` | — | `TleService` + `OrbitalHistoryRepository` + `AnomalyAlertRepository` |
+
+- `analyzeConjunction` : si `resolveUniqueTle()` lève une exception, retourne un `ConjunctionSummaryDto` avec `error` non null (jamais propagé au LLM)
+- Tous les `Instant` convertis en `String ISO-8601` avant sérialisation
+- Aucun retour d'entité JPA directe
+
+#### Étape 6.4 — `OrbitWatchAgent` (RAG + Tool Calling + mémoire)
+
+- `OrbitWatchAgent` (`@Service`) : remplace `OrbitWatchRagService` dans `ChatController` — l'ancienne classe est conservée sans modification
+- Pipeline par requête :
+  1. `vectorStore.similaritySearch(question, topK=5, threshold=0.55)` → contexte RAG injecté dans le system prompt (même logique que `OrbitWatchRagService`)
+  2. Appel LLM streamé : `.system(systemPrompt).user(question).advisors(MessageChatMemoryAdvisor.builder(jdbcChatMemory).conversationId(sessionId).build()).tools(orbitWatchTools).stream().content()`
+- `MessageChatMemoryAdvisor` construit par requête avec le `sessionId` — pas de state dans le bean
+- Question vide/nulle → `Flux.empty()` sans appel LLM
+- Erreur vectorStore → fallback contexte vide, LLM appelé quand même
+- **Correctif API Spring AI M5** : `MessageChatMemoryAdvisor.builder()` à la place du constructeur direct (3 arguments privés en M5)
+
+#### Étape 6.5 — `ChatController` mis à jour + endpoints mémoire
+
+*`ChatRequest`* (modifié)
+- Ajout du champ `String sessionId` (nullable) — si absent, UUID généré côté serveur
+
+*`ChatController`* (modifié)
+- Remplace `ragService.chat(question)` par `agent.chat(question, sessionId)`
+- `GET /api/v1/ai/chat/history?sessionId=` → `jdbcChatMemory.get(sessionId, 50)` mappé en `List<ChatMessageDto>`
+- `DELETE /api/v1/ai/chat/history?sessionId=` → `jdbcChatMemory.clear(sessionId)` → 204 No Content
+- `ChatMessageDto(role, content, createdAt)` record ajouté
+
+*`ChatControllerTest`* (mis à jour, 7 tests MockMvc)
+- Mocks remplacés : `OrbitWatchRagService` → `OrbitWatchAgent` + `JdbcChatMemory`
+- `agent.chat(anyString(), anyString())` (2 paramètres)
+- Nouveaux tests : sans sessionId → UUID auto-généré, `GET /history` session inconnue → `[]`, `DELETE /history` → 204
+
+#### Étape 6.6 — Angular : sessionId + historique conversationnel
+
+*`api-endpoints.ts`* : ajout de `ai.history` → `GET/DELETE /api/v1/ai/chat/history`
+
+*`ChatService`* (refonte)
+- `getOrCreateSessionId()` : lit `localStorage` (clé `orbitwatch_session_id`) ou génère `crypto.randomUUID()`
+- `newSessionId()` : génère et persiste un nouveau UUID (nouvelle conversation)
+- `streamChat(question, sessionId)` : ajout du `sessionId` dans le body JSON
+- `loadHistory(sessionId)` → `GET /history?sessionId=`
+- `clearHistory(sessionId)` → `DELETE /history?sessionId=`
+
+*`ChatComponent`* (modifié)
+- `ngOnInit` : `getOrCreateSessionId()` puis `loadHistory()` → pré-peuple `messages[]` (max 30 affichés)
+- `sessionLabel` : indicateur `Session #xxxxxx` dans le header
+- `prefillAndSend(q)` : pré-remplit ET soumet automatiquement (déclenché depuis `ChatPageComponent`)
+- `clearHistory()` : appelle `DELETE /history` + vide l'UI + génère un nouveau sessionId
+
+*`ChatPageComponent`* (modifié)
+- Si query param `q` présent ET `messages[]` vide → `prefillAndSend()` (auto-submit)
+- Si query param `q` présent ET historique chargé → `prefill()` seul
+
+*Template `chat.component.html`* (modifié)
+- Bouton "🗑️ Nouvelle conversation" (remplace "🗑️" seul)
+- Affichage du `sessionLabel` dans le sous-titre du header
+
+#### Correctif modèle — `llama3.2`
+
+- `application.properties` : `spring.ai.ollama.chat.model` changé de `gemma3:4b` → `llama3.2`
+- **Cause** : `gemma3` (toutes versions) ne supporte pas le Tool Calling dans Ollama — retourne 400 Bad Request dès qu'un payload `tools` est envoyé
+- `llama3.2` (1b/3b) supporte nativement le Tool Calling Ollama
+
+#### Tests unitaires M6 — bilan
+
+| Classe de test | Type | Tests | Couverture |
+|---|---|---|---|
+| `JdbcChatMemoryTest` | `@DataJpaTest` H2 | 8 | add/get/clear + rôles + isolation sessions |
+| `OrbitWatchToolsTest` | Mockito pur | 13 | 5 tools × cas nominal + limite + satellite inconnu |
+| `OrbitWatchAgentTest` | Mockito pur | 10 | RAG appelé, contexte injecté, mémoire attachée, tools transmis, questions vides, streaming |
+| `ChatControllerTest` | MockMvc | 7 | SSE nominal, 400 invalide, history GET/DELETE, UUID auto |
 

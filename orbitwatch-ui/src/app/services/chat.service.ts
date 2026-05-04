@@ -1,29 +1,54 @@
 import { Injectable } from '@angular/core';
+import { HttpClient } from '@angular/common/http';
 import { Observable } from 'rxjs';
 import { API_ENDPOINTS } from '../config/api-endpoints';
 
+export interface ChatMessageDto {
+  role: string;
+  content: string;
+  createdAt: string | null;
+}
+
 /**
- * Service Angular pour le chat RAG OrbitWatch.
- * Utilise l'API Fetch avec streaming pour consommer le flux SSE du backend Spring.
+ * Service Angular pour le chat IA OrbitWatch.
+ * Gère le streaming SSE, le sessionId persistant et l'historique.
  */
 @Injectable({ providedIn: 'root' })
 export class ChatService {
 
+  private static readonly SESSION_KEY = 'orbitwatch_session_id';
+
+  constructor(private http: HttpClient) {}
+
+  /** Retourne le sessionId existant ou en génère un nouveau (persisté dans localStorage). */
+  getOrCreateSessionId(): string {
+    let id = localStorage.getItem(ChatService.SESSION_KEY);
+    if (!id) {
+      id = crypto.randomUUID();
+      localStorage.setItem(ChatService.SESSION_KEY, id);
+    }
+    return id;
+  }
+
+  /** Génère et persiste un nouveau sessionId (nouvelle conversation). */
+  newSessionId(): string {
+    const id = crypto.randomUUID();
+    localStorage.setItem(ChatService.SESSION_KEY, id);
+    return id;
+  }
+
   /**
    * Envoie une question au backend et retourne un Observable qui émet
    * les tokens de la réponse LLM au fur et à mesure du streaming SSE.
-   *
-   * @param question Question en langage naturel
-   * @returns Observable<string> émettant les tokens un à un
    */
-  streamChat(question: string): Observable<string> {
+  streamChat(question: string, sessionId: string): Observable<string> {
     return new Observable<string>(observer => {
       const controller = new AbortController();
 
       fetch(API_ENDPOINTS.ai.chat, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ question }),
+        body: JSON.stringify({ question, sessionId }),
         signal: controller.signal
       })
         .then(response => {
@@ -33,34 +58,24 @@ export class ChatService {
           }
           const reader  = response.body!.getReader();
           const decoder = new TextDecoder();
-          // Buffer pour reconstituer les événements SSE qui peuvent être fragmentés
-          // sur plusieurs chunks TCP.
           let buffer = '';
 
           const pump = (): Promise<void> =>
             reader.read().then(({ done, value }) => {
               if (done) {
-                // Traite le reste du buffer si non vide
                 flushBuffer(buffer);
                 observer.complete();
                 return;
               }
               buffer += decoder.decode(value, { stream: true });
-
-              // Un événement SSE se termine par une ligne vide (\n\n)
               const events = buffer.split('\n\n');
-              // Le dernier élément est potentiellement incomplet — on le conserve
               buffer = events.pop() ?? '';
-
               events.forEach(event => {
-                // Reconstitue le token à partir des lignes "data:" (gère les tokens multi-lignes)
                 const dataLines = event.split('\n').filter(l => l.startsWith('data:'));
                 if (dataLines.length === 0) return;
-                // Retire exactement le préfixe "data:" sans toucher aux espaces du token
                 const token = dataLines.map(l => l.slice('data:'.length)).join('\n');
                 if (token.length > 0) observer.next(token);
               });
-
               return pump();
             });
 
@@ -80,9 +95,21 @@ export class ChatService {
           if (err?.name !== 'AbortError') observer.error(err);
         });
 
-      // Nettoyage : annulation du fetch si l'Observable est unsubscribed
       return () => controller.abort();
     });
   }
-}
 
+  /** Charge l'historique des messages d'une session. */
+  loadHistory(sessionId: string): Observable<ChatMessageDto[]> {
+    return this.http.get<ChatMessageDto[]>(
+      `${API_ENDPOINTS.ai.history}?sessionId=${encodeURIComponent(sessionId)}`
+    );
+  }
+
+  /** Efface l'historique d'une session côté serveur. */
+  clearHistory(sessionId: string): Observable<void> {
+    return this.http.delete<void>(
+      `${API_ENDPOINTS.ai.history}?sessionId=${encodeURIComponent(sessionId)}`
+    );
+  }
+}

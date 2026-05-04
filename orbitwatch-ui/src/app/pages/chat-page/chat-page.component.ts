@@ -32,7 +32,15 @@ export class ChatPageComponent implements AfterViewInit {
   ngAfterViewInit(): void {
     this.route.queryParams.subscribe(params => {
       const q = params['q'];
-      if (q) { this.chatComp.prefill(decodeURIComponent(q)); }
+      if (q) {
+        const decoded = decodeURIComponent(q);
+        // Auto-submit si aucun historique chargé (nouvelle session ou question directe)
+        if (this.chatComp.messages.length === 0) {
+          this.chatComp.prefillAndSend(decoded);
+        } else {
+          this.chatComp.prefill(decoded);
+        }
+      }
     });
   }
 
