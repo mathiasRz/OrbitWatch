@@ -1,12 +1,17 @@
-<div class="chat-wrapper">
+<div class="chat-wrapper" [class.chat-wrapper--widget]="widgetMode">
   <!-- En-tête -->
   <div class="chat-header">
     <span class="chat-icon">🤖</span>
-    <div>
+    <div class="chat-header__info">
       <h2>Assistant IA OrbitWatch</h2>
-      <p class="chat-subtitle">{{ sessionLabel }} — Posez vos questions sur les satellites en orbite</p>
+      <p class="chat-subtitle">{{ sessionLabel }} — Posez vos questions sur les satellites</p>
     </div>
-    <button class="btn-clear" (click)="clearHistory()" title="Nouvelle conversation">🗑️ Nouvelle conversation</button>
+    <div class="chat-header__actions">
+      <button class="btn-clear" (click)="clearHistory()" title="Nouvelle conversation">🗑️</button>
+      @if (widgetMode) {
+        <button class="btn-close-widget" (click)="closeWidget.emit()" title="Fermer">✕</button>
+      }
+    </div>
   </div>
 
   <!-- Zone de messages -->

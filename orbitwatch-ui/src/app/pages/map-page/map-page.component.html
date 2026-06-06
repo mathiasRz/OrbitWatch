@@ -1,28 +1,156 @@
 <div class="map-page">
+
+  <!-- ── Top bar ─────────────────────────────────────────────────────────── -->
   <header class="topbar">
     <span class="logo">🛰 OrbitWatch</span>
     <nav class="nav-links">
-      <a routerLink="/map"         routerLinkActive="active">🗺️ Carte live</a>
-      <a routerLink="/globe"       routerLinkActive="active">🌍 Globe 3D</a>
-      <a routerLink="/orbit"       routerLinkActive="active">📡 Ground track</a>
-      <a routerLink="/conjunction" routerLinkActive="active">⚠️ Conjunctions</a>
-      <a routerLink="/chat"        routerLinkActive="active">🤖 Assistant IA</a>
+      <a routerLink="/map"   routerLinkActive="active">🗺️ Vue 2D</a>
+      <a routerLink="/globe" routerLinkActive="active">🌍 Globe 3D</a>
     </nav>
     <app-alert-badge (badgeClicked)="openPanel($any($event))"></app-alert-badge>
   </header>
 
-  <div class="content">
-    <app-map-live (satelliteSelected)="onSatelliteSelected($event)"></app-map-live>
-  </div>
+  <!-- ── Layout principal ────────────────────────────────────────────────── -->
+  <div class="map-layout">
 
-  @if (panelOpen) {
-    <app-alert-panel
-      [alerts]="panelAlerts"
-      (close)="closePanel()"
-      (alertsChanged)="refreshPanel()">
-    </app-alert-panel>
-  }
-</div>
+    <!-- Sidebar gauche : sélecteur de mode + contenu contextuel -->
+    <aside class="map-sidebar">
 
+      <!-- Onglets de mode -->
+      <div class="mode-tabs">
+        <button class="mode-tab" [class.mode-tab--active]="mode === 'live'"
+                (click)="setMode('live')" title="Positions live">
+          <span class="mode-tab__icon">🌐</span>
+          <span class="mode-tab__label">Live</span>
+        </button>
+        <button class="mode-tab" [class.mode-tab--active]="mode === 'orbit'"
+                (click)="setMode('orbit')" title="Ground track orbital">
+          <span class="mode-tab__icon">📡</span>
+          <span class="mode-tab__label">Tracé</span>
+        </button>
+        <button class="mode-tab" [class.mode-tab--active]="mode === 'conjunction'"
+                (click)="setMode('conjunction')" title="Analyse de conjunction">
+          <span class="mode-tab__icon">⚡</span>
+          <span class="mode-tab__label">Conj.</span>
+        </button>
+      </div>
 
+      <!-- ── Contenu : mode Live ─────────────────────────────────────────── -->
+      @if (mode === 'live') {
+        <div class="sidebar-content">
+          <p class="sidebar-hint">
+            Cliquez sur un satellite dans la carte pour afficher son ground track.
+          </p>
+          <div class="sidebar-tip">
+            <span class="tip-icon">💡</span>
+            Popup → <strong>Ground track</strong> pour passer en mode tracé
+          </div>
+          <div class="sidebar-tip">
+            <span class="tip-icon">💡</span>
+            Popup → <strong>Profil</strong> pour accéder à la fiche satellite
+          </div>
+        </div>
+      }
 
+      <!-- ── Contenu : mode Ground track ────────────────────────────────── -->
+      @if (mode === 'orbit') {
+        <div class="sidebar-content sidebar-content--orbit">
+          <h3 class="sidebar-title">📡 Ground track</h3>
+          <app-tle-form [loading]="trackLoading()" (propagate)="onPropagate($event)"></app-tle-form>
+
+          @if (trackError()) {
+            <div class="sidebar-error">⚠ {{ trackError() }}</div>
+          }
+          @if (trackLoading()) {
+            <div class="sidebar-loading">⏳ Calcul en cours…</div>
+          }
+          @if (track().length > 0 && !trackLoading()) {
+            <div class="sidebar-result">
+              <div class="result-row">
+                <span class="result-label">Satellite</span>
+                <span class="result-val">{{ track()[0].name }}</span>
+              </div>
+              <div class="result-row">
+                <span class="result-label">Points</span>
+                <span class="result-val">{{ track().length }}</span>
+              </div>
+              <div class="result-row">
+                <span class="result-label">Alt. moy.</span>
+                <span class="result-val">{{ avgAltitude() | number:'1.0-0' }} km</span>
+              </div>
+            </div>
+          }
+        </div>
+      }
+
+      <!-- ── Contenu : mode Conjunctions ────────────────────────────────── -->
+      @if (mode === 'conjunction') {
+        <div class="sidebar-content sidebar-content--conj">
+          <h3 class="sidebar-title">⚡ Conjunctions</h3>
+          <app-conjunction-form
+            (reportReady)="onReportReady($event)"
+            (loading)="onConjLoading($event)"
+            (errorMsg)="onConjError($event)">
+          </app-conjunction-form>
+
+          @if (conjLoading) {
+            <div class="sidebar-loading">⏳ Analyse en cours…</div>
+          }
+          @if (conjError) {
+            <div class="sidebar-error">⚠ {{ conjError }}</div>
+          }
+
+          @if (conjReport && !conjLoading) {
+            <div class="conj-result">
+              <h4 class="conj-result__title">{{ conjReport.nameSat1 }} ↔ {{ conjReport.nameSat2 }}</h4>
+              <p class="conj-result__meta">
+                Seuil {{ conjReport.thresholdKm }} km &bull;
+                {{ conjReport.windowStart | date:'dd/MM HH:mm':'UTC' }}
+                → {{ conjReport.windowEnd | date:'dd/MM HH:mm':'UTC' }} UTC
+              </p>
+              @if (conjReport.events.length === 0) {
+                <p class="conj-no-event">✅ Aucun rapprochement critique détecté.</p>
+              }
+              @for (ev of conjReport.events; track ev.tca; let i = $index) {
+                <div class="conj-event {{ severityClass(ev.distanceKm) }}">
+                  <span class="ev-index">#{{ i + 1 }}</span>
+                  <span class="ev-dist">{{ ev.distanceKm | number:'1.3-3' }} km</span>
+                  <span class="ev-tca">{{ ev.tca | date:'dd/MM HH:mm:ss':'UTC' }} UTC</span>
+                </div>
+              }
+            </div>
+          }
+        </div>
+      }
+
+    </aside>
+
+    <!-- ── Zone carte principale ─────────────────────────────────────────── -->
+    <main class="map-area">
+      @if (mode === 'live') {
+        <app-map-live (satelliteSelected)="onSatelliteSelected($event)"></app-map-live>
+      }
+      @if (mode === 'orbit') {
+        <app-map [track]="track()"></app-map>
+      }
+      @if (mode === 'conjunction') {
+        @if (!conjReport) {
+          <div class="map-placeholder">
+            <div class="placeholder-icon">⚡</div>
+            <p>Sélectionnez deux satellites et lancez l'analyse pour visualiser les trajectoires</p>
+          </div>
+        }
+        @if (conjReport) {
+          <app-conjunction-map [report]="conjReport"></app-conjunction-map>
+        }
+      }
+    </main>
+
+  </div><!-- /map-layout -->
+
+</div><!-- /map-page -->
+
+@if (panelOpen) {
+  <app-alert-panel [alerts]="panelAlerts" (close)="closePanel()" (alertsChanged)="refreshPanel()">
+  </app-alert-panel>
+}

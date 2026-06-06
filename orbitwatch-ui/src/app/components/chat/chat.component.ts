@@ -1,6 +1,6 @@
 import {
   ChangeDetectionStrategy, ChangeDetectorRef, Component,
-  inject, OnDestroy, OnInit
+  EventEmitter, inject, Input, OnDestroy, OnInit, Output
 } from '@angular/core';
 import { FormsModule } from '@angular/forms';
 import { CommonModule } from '@angular/common';
@@ -33,6 +33,11 @@ interface ChatMessage {
 })
 export class ChatComponent implements OnInit, OnDestroy {
 
+  /** En mode widget (globe) : affiche un bouton fermer dans le header */
+  @Input() widgetMode = false;
+  /** Émis quand l'utilisateur clique sur le bouton fermer (widget mode) */
+  @Output() closeWidget = new EventEmitter<void>();
+
   messages:     ChatMessage[] = [];
   question      = '';
   currentToken  = '';  // tokens du message assistant en cours de stream
@@ -50,6 +55,9 @@ export class ChatComponent implements OnInit, OnDestroy {
     this.chatService.loadHistory(this.sessionId)
       .pipe(catchError(() => of([])))
       .subscribe(history => {
+        // Garde : ne pas écraser si des messages ont déjà été ajoutés
+        // (ex. auto-submit depuis SatelliteProfilePage via query param ?q=)
+        if (this.messages.length > 0) return;
         const MAX_DISPLAY = 30;
         const slice = history.slice(-MAX_DISPLAY);
         this.messages = slice.map(m => ({

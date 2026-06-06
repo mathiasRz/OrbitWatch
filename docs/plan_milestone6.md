@@ -1,5 +1,7 @@
-# Plan d'implémentation — Milestone 6 : Agent IA + Mémoire conversationnelle + Ground track 3D
-**Date de rédaction** : 2026-05-04
+# Plan d'implémentation — Milestone 6 : Agent IA + Mémoire conversationnelle + Ground track 3D + Refonte UX
+**Date de rédaction** : 2026-05-04  
+**Date de complétion** : 2026-06-06  
+**Statut** : ✅ TERMINÉ
 
 ---
 
@@ -7,11 +9,12 @@
 
 Transformer l'assistant RAG passif (M5) en un **agent autonome Spring AI Tool Calling** opérationnel, capable d'appeler les APIs métier OrbitWatch pour répondre à des questions complexes. Ajouter la **mémoire conversationnelle persistante** par session et le **ground track 3D** sur le globe CesiumJS.
 
-| Feature | Périmètre |
-|---------|-----------|
-| **A — Agent Spring AI Tool Calling** | `OrbitWatchTools` avec `@Tool` sur les méthodes métier, `OrbitWatchAgent` remplaçant `OrbitWatchRagService`, compatibilité SSE maintenue |
-| **B — Mémoire conversationnelle** | Migration Flyway V6, `JdbcChatMemory`, `sessionId` UUID côté Angular (`localStorage`), endpoints `GET/DELETE /history` |
-| **C — Ground track 3D + polish UI** | Polyline orbitale sur clic satellite dans le globe CesiumJS, bouton "🤖 Analyser" depuis `SatelliteProfilePage` |
+| Feature | Périmètre | Statut |
+|---------|-----------|--------|
+| **A — Agent Spring AI Tool Calling** | `OrbitWatchTools` avec `@Tool` sur les méthodes métier, `OrbitWatchAgent` remplaçant `OrbitWatchRagService`, compatibilité SSE maintenue | ✅ Terminé |
+| **B — Mémoire conversationnelle** | Migration Flyway V6, `JdbcChatMemory`, `sessionId` UUID côté Angular (`localStorage`), endpoints `GET/DELETE /history` | ✅ Terminé |
+| **C — Ground track 3D + polish UI** | Polyline orbitale sur clic satellite dans le globe CesiumJS, bouton "🤖 Analyser" depuis `SatelliteProfilePage` | ✅ Terminé |
+| **D — Refonte UX complète** *(ajout en cours de M6)* | Globe comme vue principale, panneau satellite rétractable, widget chat FAB redimensionnable, fusion en 2 pages (globe + map) | ✅ Terminé |
 
 ---
 
@@ -380,4 +383,71 @@ Nouveau comportement :
 ---
 
 *Document de référence pour le développement de la Milestone 6 — dernière milestone OrbitWatch.*
+
+---
+
+## Bilan de réalisation — Milestone 6 TERMINÉE
+
+### Étapes planifiées (6.1 → 6.8) ✅
+
+| Étape | Description | Statut |
+|-------|-------------|--------|
+| 6.1 | Migration Flyway V6 : table `chat_history` | ✅ |
+| 6.2 | `JdbcChatMemory` (implémentation `ChatMemory`) | ✅ |
+| 6.3 | `OrbitWatchTools` : 5 beans `@Tool` | ✅ |
+| 6.4 | `OrbitWatchAgent` (RAG + Tool Calling + mémoire) | ✅ |
+| 6.5 | `ChatController` mis à jour + endpoints mémoire | ✅ |
+| 6.6 | Angular : `sessionId` + historique conversationnel | ✅ |
+| 6.7 | Ground track 3D sur le globe CesiumJS | ✅ |
+| 6.8 | Polish UI : liens agent depuis `SatelliteProfilePage` | ✅ |
+
+### Polish UX étendu (au-delà du plan initial) ✅
+
+| Feature | Description |
+|---------|-------------|
+| **Globe comme vue principale** | Route par défaut `/` → `/globe` ; le globe 3D s'ouvre au démarrage |
+| **Panneau satellite rétractable** | Sidebar gauche avec liste filtrée, recherche, sélection + flyTo, 4 actions contextuelles |
+| **Halo de sélection** | Anneau cyan + glow diffus autour du satellite sélectionné, suivi en temps réel |
+| **Reset vue au dézoom** | Dépassement 10 000 km altitude → fly-to automatique vers la Terre ; bouton 🌍 manuel |
+| **Alignement ground track / satellite** | Fix epoch : tracé part de `epoch − 45 min` → satellite exactement sur son orbite ; tracé passé gris / futur cyan |
+| **Widget chat FAB** | Bouton 🤖 bas-droit, fenêtre flottante 380×520 px, animations, ouverture depuis bouton "Analyser" du panneau |
+| **Chat redimensionnable** | 3 poignées (bord haut, bord gauche, coin haut-gauche), drag hors NgZone, min 300×320 / max taille écran |
+| **Suppression page `/chat`** | Chat intégré dans le globe comme widget ; route `/chat` supprimée ; wildcard → `/globe` |
+| **Fusion en 2 pages** | `/globe` (3D) + `/map` (2D) avec 3 onglets Live / Tracé / Conjunctions ; pages `/orbit` et `/conjunction` supprimées |
+
+### Architecture finale Angular
+
+```
+/ (redirect) ──→ /globe
+                  ├── GlobeComponent (CesiumJS)
+                  │     ├── SatellitePanelComponent (sidebar gauche, rétractable)
+                  │     │     └── Actions : Fiche / Tracé / Conjunction / IA
+                  │     ├── Ground track (CustomDataSource, passé gris + futur cyan)
+                  │     ├── Halo de sélection (anneau + glow cyan)
+                  │     └── ChatWidgetComponent (FAB bas-droit, redimensionnable)
+                  │           └── ChatComponent [widgetMode=true]
+                  └── Top-bar : chips Satellites / Débris / Conjunctions + bouton 🌍
+
+/map
+  └── MapPageComponent
+        ├── Onglet Live  : MapLiveComponent (positions temps réel + heatmap)
+        ├── Onglet Tracé : OrbitPageComponent (formulaire TLE + polyline)
+        └── Onglet Conj. : ConjunctionPageComponent (formulaire + résultats + carte)
+
+/satellite/byname/:name
+/satellite/:noradId
+  └── SatelliteProfilePageComponent
+        └── Bouton "🤖 Analyser" → /globe?q=Analyse le satellite [nom]…
+```
+
+### Bilan tests M6
+
+| Fichier | Type | Tests |
+|---------|------|-------|
+| `JdbcChatMemoryTest` | `@DataJpaTest` H2 | 8 |
+| `OrbitWatchToolsTest` | Mockito pur | 13 |
+| `OrbitWatchAgentTest` | Mockito pur | 10 |
+| `ChatControllerTest` | MockMvc | 7 |
+| **Total M6** | | **38** |
+| **Total projet M1–M6** | | **≥ 180** |
 

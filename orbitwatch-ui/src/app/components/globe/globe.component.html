@@ -1,6 +1,6 @@
 <div class="globe-wrapper">
 
-  <!-- Conteneur CesiumJS -->
+  <!-- Conteneur CesiumJS plein écran -->
   <div #cesiumContainer class="cesium-container">
     @if (loading) {
       <div class="globe-loading">
@@ -12,60 +12,163 @@
     }
   </div>
 
-  <!-- Panneau de contrôle superposé -->
-  <div class="globe-controls">
-
-    <!-- Barre de navigation (identique aux autres pages) -->
-    <div class="nav-bar">
-      <span class="logo">🛰 OrbitWatch</span>
-      <nav class="nav-links">
-        <a routerLink="/map"         class="nav-btn" routerLinkActive="nav-btn--active">🗺️ Carte live</a>
-        <a routerLink="/globe"       class="nav-btn" routerLinkActive="nav-btn--active">🌍 Globe 3D</a>
-        <a routerLink="/orbit"       class="nav-btn" routerLinkActive="nav-btn--active">📡 Ground track</a>
-        <a routerLink="/conjunction" class="nav-btn" routerLinkActive="nav-btn--active">⚠️ Conjunctions</a>
-        <a routerLink="/chat"        class="nav-btn" routerLinkActive="nav-btn--active">🤖 Assistant IA</a>
-      </nav>
+  <!-- ── Barre de navigation top ─────────────────────────────────────────── -->
+  <div class="top-bar">
+    <span class="logo">🛰 OrbitWatch</span>
+    <nav class="nav-links">
+      <a routerLink="/map"         class="nav-btn" routerLinkActive="nav-btn--active">🗺️ Vue 2D</a>
+      <a routerLink="/globe"       class="nav-btn" routerLinkActive="nav-btn--active">🌍 Globe 3D</a>
+    </nav>
+    <div class="top-bar__right">
+      <div class="layer-toggles">
+        <button class="layer-chip" [class.layer-chip--on]="showStations" (click)="toggleStations()">
+          🛰 Satellites
+          @if (stationCount > 0) { <span class="chip-badge">{{ stationCount }}</span> }
+        </button>
+        <button class="layer-chip layer-chip--debris" [class.layer-chip--on]="showDebris" (click)="toggleDebris()">
+          💠 Débris
+          @if (debrisCount > 0) { <span class="chip-badge">{{ debrisCount }}</span> }
+        </button>
+        <button class="layer-chip layer-chip--conj" [class.layer-chip--on]="showConjunctions" (click)="toggleConjunctions()">
+          ⚡ Conjunctions
+          @if (conjunctionCount > 0) { <span class="chip-badge chip-badge--alert">{{ conjunctionCount }}</span> }
+        </button>
+        <!-- Bouton reset vue globale — mis en avant quand un satellite est sélectionné -->
+        <button class="layer-chip layer-chip--reset"
+                [class.layer-chip--reset-active]="!!selectedSat"
+                (click)="resetToEarthView()"
+                title="Revenir à la vue globale">
+          🌍
+        </button>
+      </div>
       <app-alert-badge (badgeClicked)="openPanel($any($event))"></app-alert-badge>
     </div>
+  </div>
 
-    <!-- Toggles couches -->
-    <div class="layers-panel">
-      <span class="panel-title">Couches</span>
+  <!-- ── Panneau satellite (sidebar gauche) ──────────────────────────────── -->
+  <div class="sat-panel" [class.sat-panel--open]="satPanelOpen">
 
-      <button class="layer-btn" [class.active]="showStations" (click)="toggleStations()">
-        Satellites
-        @if (stationCount > 0) { <span class="badge">{{ stationCount }}</span> }
-      </button>
+    <button class="sat-panel__tab" (click)="toggleSatPanel()" [title]="satPanelOpen ? 'Fermer' : 'Satellites'">
+      @if (satPanelOpen) { ◀ } @else { 🛰 }
+    </button>
 
-      <button class="layer-btn layer-btn--debris" [class.active]="showDebris" (click)="toggleDebris()">
-        Débris
-        @if (debrisCount > 0) { <span class="badge">{{ debrisCount }}</span> }
-      </button>
+    @if (satPanelOpen) {
+      <div class="sat-panel__header">
+        <span class="sat-panel__title">Satellites</span>
+        <span class="sat-panel__count">{{ stations.length }}</span>
+      </div>
 
-      <button class="layer-btn layer-btn--conjunction" [class.active]="showConjunctions" (click)="toggleConjunctions()">
-        Conjunctions
-        @if (conjunctionCount > 0) { <span class="badge badge--alert">{{ conjunctionCount }}</span> }
-      </button>
+      <div class="sat-panel__search-wrap">
+        <input
+          class="sat-panel__search"
+          [ngModel]="satFilter"
+          (ngModelChange)="onFilterChange($event)"
+          placeholder="🔍 Rechercher…"
+          autocomplete="off"
+        />
+      </div>
+
+      <div class="sat-panel__list">
+        @if (loading) {
+          <div class="sat-panel__empty">⏳ Chargement…</div>
+        } @else if (filteredStations.length === 0) {
+          <div class="sat-panel__empty">Aucun résultat</div>
+        }
+
+        @for (sat of filteredStations; track sat.name) {
+          <div class="sat-item" [class.sat-item--active]="selectedSat?.name === sat.name" (click)="selectSatellite(sat)">
+
+            <div class="sat-item__row">
+              <span class="sat-item__dot" [class.sat-item__dot--track]="activeGroundTrackSat === sat.name"></span>
+              <span class="sat-item__name">{{ sat.name }}</span>
+              <span class="sat-item__alt">{{ sat.altitude | number:'1.0-0' }} km</span>
+              <span class="sat-item__chevron">{{ selectedSat?.name === sat.name ? '▲' : '▼' }}</span>
+            </div>
+
+            @if (selectedSat?.name === sat.name) {
+              <div class="sat-actions" (click)="$event.stopPropagation()">
+
+                <a class="sat-action sat-action--profile" [routerLink]="['/satellite/byname', sat.name]" title="Fiche satellite">
+                  <span class="sat-action__icon">📋</span>
+                  <span class="sat-action__label">Fiche</span>
+                </a>
+
+                <button class="sat-action sat-action--track"
+                        [class.sat-action--active]="activeGroundTrackSat === sat.name"
+                        [disabled]="groundTrackLoading"
+                        (click)="toggleGroundTrack(sat.name)"
+                        title="Trajectoire orbitale">
+                  @if (groundTrackLoading && activeGroundTrackSat === sat.name) {
+                    <span class="sat-action__icon spin">⏳</span>
+                    <span class="sat-action__label">Calcul…</span>
+                  } @else if (activeGroundTrackSat === sat.name) {
+                    <span class="sat-action__icon">✕</span>
+                    <span class="sat-action__label">Masquer</span>
+                  } @else {
+                    <span class="sat-action__icon">🛤️</span>
+                    <span class="sat-action__label">Tracé</span>
+                  }
+                </button>
+
+                <a class="sat-action sat-action--conj" [routerLink]="['/map']" [queryParams]="{ mode: 'conjunction', sat1: sat.name }" title="Analyser les conjonctions">
+                  <span class="sat-action__icon">⚡</span>
+                  <span class="sat-action__label">Conjunction</span>
+                </a>
+
+                <button class="sat-action sat-action--ai"
+                        (click)="openChatWithQuery(sat.name)"
+                        title="Analyser avec l'IA">
+                  <span class="sat-action__icon">🤖</span>
+                  <span class="sat-action__label">Analyser</span>
+                </button>
+
+              </div>
+            }
+          </div>
+        }
+      </div>
+
+      @if (showDebris && debrisCount > 0) {
+        <div class="sat-panel__legend">
+          <span class="legend-dot legend-dot--green"></span>&lt;600km
+          <span class="legend-dot legend-dot--orange"></span>600–1200
+          <span class="legend-dot legend-dot--red"></span>&gt;1200km
+        </div>
+      }
+    }
+  </div>
+
+  <!-- ── Widget Chat IA ────────────────────────────────────────────────── -->
+
+  <!-- Bouton FAB (toujours visible) -->
+  <button class="chat-fab" [class.chat-fab--open]="chatOpen" (click)="toggleChat()" title="Assistant IA OrbitWatch">
+    @if (chatOpen) {
+      <span class="chat-fab__icon">✕</span>
+    } @else {
+      <span class="chat-fab__icon">🤖</span>
+      <span class="chat-fab__label">IA</span>
+    }
+  </button>
+
+  <!-- Fenêtre de chat flottante (toujours montée, visibilité CSS) -->
+  <div class="chat-widget"
+       [class.chat-widget--open]="chatOpen"
+       [style.width.px]="chatWidth"
+       [style.height.px]="chatHeight">
+
+    <!-- Poignées de redimensionnement -->
+    <div class="resize-handle resize-handle--top"    (mousedown)="startResize($event, 'top')"></div>
+    <div class="resize-handle resize-handle--left"   (mousedown)="startResize($event, 'left')"></div>
+    <div class="resize-handle resize-handle--corner" (mousedown)="startResize($event, 'corner')">
+      <span class="resize-corner-icon">⤡</span>
     </div>
 
-    <!-- Légende débris -->
-    @if (showDebris && debrisCount > 0) {
-      <div class="legend">
-        <span class="legend-title">Altitude débris</span>
-        <span class="legend-item"><span class="dot dot--green"></span> &lt; 600 km</span>
-        <span class="legend-item"><span class="dot dot--orange"></span> 600–1200 km</span>
-        <span class="legend-item"><span class="dot dot--red"></span> &gt; 1200 km</span>
-      </div>
-    }
-
+    <app-chat #chatWidget [widgetMode]="true" (closeWidget)="chatOpen = false; cdr.markForCheck()"></app-chat>
   </div>
+
 </div>
 
 @if (panelOpen) {
-  <app-alert-panel
-    [alerts]="panelAlerts"
-    (close)="closePanel()"
-    (alertsChanged)="refreshPanel()">
+  <app-alert-panel [alerts]="panelAlerts" (close)="closePanel()" (alertsChanged)="refreshPanel()">
   </app-alert-panel>
 }
-

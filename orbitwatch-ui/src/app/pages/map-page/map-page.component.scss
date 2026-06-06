@@ -1,24 +1,30 @@
+// ── Page wrapper ──────────────────────────────────────────────────────────
+
 .map-page {
   display: flex;
   flex-direction: column;
   height: 100vh;
   background: #0a0a0f;
   font-family: 'Inter', sans-serif;
+  color: #e0e6f0;
 }
+
+// ── Top bar ───────────────────────────────────────────────────────────────
 
 .topbar {
   display: flex;
   align-items: center;
   justify-content: space-between;
   padding: 0 1.5rem;
-  height: 48px;
-  background: #12121a;
-  border-bottom: 1px solid #2a2a3a;
+  height: 46px;
+  background: rgba(10, 10, 26, 0.95);
+  border-bottom: 1px solid #1e1e3a;
   flex-shrink: 0;
+  backdrop-filter: blur(6px);
 }
 
 .logo {
-  font-size: 1.1rem;
+  font-size: 1rem;
   font-weight: 700;
   color: #00d4ff;
 }
@@ -28,7 +34,7 @@
   gap: 1.5rem;
 
   a {
-    color: #888;
+    color: #666;
     text-decoration: none;
     font-size: 0.85rem;
     transition: color 0.2s;
@@ -37,13 +43,195 @@
   }
 }
 
-.content {
+// ── Layout 2 colonnes ─────────────────────────────────────────────────────
+
+.map-layout {
   flex: 1;
   min-height: 0;
   display: flex;
+}
+
+// ── Sidebar gauche ────────────────────────────────────────────────────────
+
+.map-sidebar {
+  width: 290px;
+  flex-shrink: 0;
+  display: flex;
+  flex-direction: column;
+  background: #0d0d1a;
+  border-right: 1px solid #1e1e3a;
+  overflow: hidden;
+}
+
+// Onglets de mode
+
+.mode-tabs {
+  display: flex;
+  border-bottom: 1px solid #1e1e3a;
+  flex-shrink: 0;
+}
+
+.mode-tab {
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 3px;
+  padding: 0.55rem 0.25rem;
+  background: #0a0a18;
+  border: none;
+  border-right: 1px solid #1e1e3a;
+  color: #555;
+  cursor: pointer;
+  transition: all 0.18s;
+
+  &:last-child { border-right: none; }
+  &:hover      { background: #12122a; color: #aaa; }
+
+  &--active {
+    background: #0a1a30;
+    color: #00d4ff;
+    border-bottom: 2px solid #00d4ff;
+  }
+
+  &__icon  { font-size: 1.1rem; line-height: 1; }
+  &__label { font-size: 0.65rem; letter-spacing: 0.03em; }
+}
+
+// Contenu sidebar
+
+.sidebar-content {
+  flex: 1;
+  overflow-y: auto;
+  padding: 0.75rem;
+
+  &::-webkit-scrollbar { width: 4px; }
+  &::-webkit-scrollbar-track { background: transparent; }
+  &::-webkit-scrollbar-thumb { background: #2a2a4a; border-radius: 2px; }
+}
+
+.sidebar-title {
+  margin: 0 0 0.75rem;
+  font-size: 0.85rem;
+  font-weight: 600;
+  color: #00d4ff;
+}
+
+.sidebar-hint {
+  color: #555;
+  font-size: 0.78rem;
+  line-height: 1.5;
+  margin: 0 0 0.75rem;
+}
+
+.sidebar-tip {
+  display: flex;
+  align-items: flex-start;
+  gap: 0.4rem;
+  font-size: 0.75rem;
+  color: #444;
+  margin-bottom: 0.4rem;
+
+  .tip-icon { flex-shrink: 0; }
+  strong    { color: #666; }
+}
+
+.sidebar-error {
+  margin-top: 0.5rem;
+  padding: 0.4rem 0.6rem;
+  background: #2a0a0a;
+  border: 1px solid #6b2020;
+  border-radius: 6px;
+  color: #ff8888;
+  font-size: 0.78rem;
+}
+
+.sidebar-loading {
+  margin-top: 0.5rem;
+  color: #00d4ff88;
+  font-size: 0.78rem;
+}
+
+// Résultat ground track
+
+.sidebar-result {
+  margin-top: 0.75rem;
+  background: #0a1a2a;
+  border: 1px solid #1e3a5a;
+  border-radius: 8px;
+  padding: 0.6rem 0.75rem;
+}
+
+.result-row {
+  display: flex;
+  justify-content: space-between;
+  font-size: 0.78rem;
+  padding: 0.2rem 0;
+  border-bottom: 1px solid #1e2a3a;
+
+  &:last-child { border-bottom: none; }
+}
+
+.result-label { color: #556; }
+.result-val   { color: #88ccff; font-weight: 500; }
+
+// Résultats conjunction
+
+.conj-result {
+  margin-top: 0.75rem;
+}
+
+.conj-result__title {
+  margin: 0 0 0.2rem;
+  font-size: 0.82rem;
+  color: #ff8800;
+  font-weight: 600;
+}
+
+.conj-result__meta {
+  margin: 0 0 0.5rem;
+  font-size: 0.7rem;
+  color: #666;
+}
+
+.conj-no-event {
+  font-size: 0.78rem;
+  color: #44aa66;
+  margin: 0;
+}
+
+.conj-event {
+  display: flex;
+  align-items: center;
+  gap: 0.4rem;
+  padding: 0.3rem 0.5rem;
+  border-radius: 5px;
+  font-size: 0.74rem;
+  margin-bottom: 0.25rem;
+  border: 1px solid transparent;
+
+  &.critical { background: #2a0a0a; border-color: #6b2020; color: #ff8888; }
+  &.warning  { background: #2a1800; border-color: #6b4400; color: #ffaa44; }
+  &.caution  { background: #1a1a00; border-color: #4a4a00; color: #dddd44; }
+
+  .ev-index { font-weight: 700; min-width: 22px; }
+  .ev-dist  { font-weight: 600; flex: 1; }
+  .ev-tca   { color: #888; font-size: 0.68rem; }
+}
+
+// ── Zone carte ─────────────────────────────────────────────────────────────
+
+.map-area {
+  flex: 1;
+  min-width: 0;
+  position: relative;
+  display: flex;
   flex-direction: column;
 
-  app-map-live {
+  app-map-live,
+  app-map,
+  app-conjunction-map {
     flex: 1;
     min-height: 0;
     display: flex;
@@ -51,3 +239,15 @@
   }
 }
 
+.map-placeholder {
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  color: #444;
+  gap: 1rem;
+
+  .placeholder-icon { font-size: 3rem; opacity: 0.5; }
+  p { font-size: 0.9rem; text-align: center; max-width: 280px; line-height: 1.5; }
+}

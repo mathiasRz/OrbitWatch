@@ -140,7 +140,7 @@ export class SatelliteProfilePageComponent implements OnInit {
   }
 
   openConjunction(sat1: string, sat2: string): void {
-    this.router.navigate(['/conjunction'], { queryParams: { sat1, sat2 } });
+    this.router.navigate(['/map'], { queryParams: { mode: 'conjunction', sat1, sat2 } });
   }
 
   openPanel(alerts: CombinedAlerts): void {

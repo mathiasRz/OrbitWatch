@@ -26,7 +26,7 @@ Développer une plateforme web de surveillance spatiale permettant de :
 | 3 | Détection de rapprochements | Terminé | ConjunctionService + ConjunctionScanJob + BDD (conjunction_alert) + notifications IHM (badge polling 30 s) + page /conjunction + 23 tests |
 | 4 | Analyse d'évolution orbitale | Terminé | Historique orbital (noradId, paramètres Keplériens), règles métier + Z-score Smile ML, page Profil satellite avec graphes Chart.js, badge anomalies |
 | 5 | Surveillance des débris + 3D | **Terminé** | Heatmap orbitale + globe CesiumJS + assistant RAG v1 (Spring AI) + navigation unifiée |
-| 6 | Version vitrine / Agent IA | **En cours** | Agent Spring AI Tool Calling (5 tools) + mémoire JDBC (JdbcChatMemory) + sessionId Angular — étapes 6.1→6.6 terminées |
+| 6 | Version vitrine / Agent IA | **Terminé** | Agent Spring AI Tool Calling (5 tools) + mémoire JDBC + sessionId Angular + refonte UX complète (globe principal, panneau satellite, widget chat IA flottant redimensionnable, vue 2D unifiée) |
 
 ---
 
@@ -695,4 +695,85 @@ Développer une plateforme web de surveillance spatiale permettant de :
 | `OrbitWatchToolsTest` | Mockito pur | 13 | 5 tools × cas nominal + limite + satellite inconnu |
 | `OrbitWatchAgentTest` | Mockito pur | 10 | RAG appelé, contexte injecté, mémoire attachée, tools transmis, questions vides, streaming |
 | `ChatControllerTest` | MockMvc | 7 | SSE nominal, 400 invalide, history GET/DELETE, UUID auto |
+
+---
+
+### 2026-06-06
+**Milestone 6 — Polish UX : refonte complète de l'interface (étapes 6.7 → 6.8 + polish étendu)**
+
+#### Étape 6.7 — Ground track 3D sur le globe CesiumJS
+
+*`GlobeService`*
+- Ajout de `getGroundTrack(sat: SatellitePosition)` → calcule le tracé depuis l'epoch exact du satellite (`sat.epoch`) en démarrant 45 min avant pour centrer le satellite au milieu de la trajectoire
+
+*`GlobeComponent`* (ground track)
+- **Fix d'alignement epoch** : le ground track démarre 45 min avant `sat.epoch` → le billboard du satellite est exactement sur le tracé
+- **Tracé différencié passé/futur** :
+  - Segment passé (−45 min) : tirets gris-bleu atténués (`#3a6a8a`, 1.5 px)
+  - Segment futur (+45 min) : tirets cyan vifs (`#00d4ff`, 2 px)
+  - Marqueur de position actuelle : halo cyan translucide (~60 km de rayon)
+- Toggle : clic sur le même satellite → efface le tracé ; clic sur un autre → remplace
+
+#### Globe 3D comme vue principale
+
+*`app.routes.ts`*
+- `redirectTo: 'map'` → `redirectTo: 'globe'` : le globe s'ouvre directement au démarrage
+
+#### Panneau satellite rétractable (sidebar gauche du globe)
+
+- Ouvert par défaut, onglet `◀ / 🛰` pour fermer/ouvrir
+- Champ de recherche filtrant instantanément la liste par nom
+- Clic dans la liste **ou** dans le globe → sélection + `flyTo()` animé
+- Actions disponibles pour le satellite sélectionné :
+
+| Bouton | Action |
+|--------|--------|
+| **Fiche** | `/satellite/byname/{nom}` |
+| **Tracé** | Toggle ground track orbital (tirets cyan) |
+| **Conjunction** | `/map?mode=conjunction&sat1={nom}` |
+| **Analyser** | Ouvre le widget chat + soumet automatiquement `"Analyse le satellite [nom]…"` |
+
+#### Étape 6.8 — Widget chat IA intégré dans le globe (FAB bottom-right)
+
+- Bouton **FAB** " IA" fixé en bas à droite du globe, toujours visible ; devient "✕" quand ouvert
+- Fenêtre flottante **380 × 520 px** (min 300×320, max taille écran), bords arrondis, ombre portée
+- **Animation** slide-up + scale à l'ouverture, fondu + rétraction à la fermeture
+- **Redimensionnable** : 3 poignées de drag (bord haut `↕`, bord gauche `↔`, coin haut-gauche `↖`)  
+  — drag hors zone Angular (`NgZone.runOutsideAngular`) pour la fluidité, listeners nettoyés à la fin du drag
+- **`ChatComponent`** enrichi : `@Input() widgetMode`, `@Output() closeWidget`, header compact avec bouton ✕
+- La page `/chat` standalone reste fonctionnelle (`widgetMode = false` par défaut)
+
+#### Suppression de la page `/chat`
+
+- Route `/chat` supprimée de `app.routes.ts` → wildcard `**` redirige vers `/globe`
+- Chunk lazy `chat-page-component` disparu du bundle de production
+- Liens "🤖 Assistant IA" retirés de toutes les navbars
+- Bouton "Analyser" du profil satellite navigue vers `/globe?q=…` (ouvre le widget et soumet la question)
+
+#### Refactorisation : 2 pages uniquement (globe 3D + carte 2D)
+
+- Pages supprimées : `/orbit` (ground track 2D), `/conjunction` (page dédiée), `/chat`
+- **Vue 2D unifiée** (`/map`) : 3 onglets dans la sidebar
+
+| Onglet | Fonctionnalité |
+|--------|----------------|
+| ** Live** | Positions temps réel + heatmap débris. Popup → Ground track ou Profil |
+| ** Tracé** | Formulaire TLE, génère la trajectoire orbitale sur la même carte |
+| ** Conj.** | Formulaire conjunction, liste des résultats, visualisation des deux trajectoires |
+
+- Navigation mise à jour partout : `/map?mode=orbit&name=X`, `/map?mode=conjunction&sat1=X&sat2=Y`
+- `ConjunctionFormComponent` lit déjà les query params → auto-submit sans changement
+
+#### Corrections visuelles ground track 3D — alignement satellite sur sa trajectoire
+
+- **Cause du décalage** : tracé calculé depuis "maintenant" alors que le billboard affichait sa position à l'epoch TLE (jusqu'à 60 s d'écart → ~200 km en LEO)
+- **Fix** : `GlobeService.getGroundTrack(sat)` extrait `sat.epoch` et démarre le tracé à `epoch − 45 min` → satellite toujours au centre de sa trajectoire
+
+#### Halo de sélection + reset vue au dézoom
+
+- Satellite sélectionné : **anneau cyan** (2 px) + **halo diffus** semi-transparent (44 px) autour du billboard ; se déplace au poll suivant
+- **Reset automatique** : quand la caméra dépasse 10 000 km d'altitude → fly-to vers la Terre à 22 000 km (1.5 s) + réinitialisation de la sélection
+- **Bouton ** dans la top-bar : retour à la vue globale en un clic ; pulse cyan quand un satellite est sélectionné
+
+**Milestone 6 — TERMINÉ** (étapes 6.1 → 6.8 + polish UX étendu)
 
