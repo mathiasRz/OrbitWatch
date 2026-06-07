@@ -38,5 +38,13 @@ public interface ConjunctionAlertRepository extends JpaRepository<ConjunctionAle
     boolean existsByNoradId1AndNoradId2AndTcaBetween(
             int noradId1, int noradId2,
             Instant tcaFrom, Instant tcaTo);
+
+    /**
+     * Supprime toutes les alertes de rapprochement détectées avant la borne donnée.
+     *
+     * @param cutoff borne temporelle : toute alerte antérieure est supprimée
+     * @return nombre d'enregistrements supprimés
+     */
+    int deleteByDetectedAtBefore(Instant cutoff);
 }
 

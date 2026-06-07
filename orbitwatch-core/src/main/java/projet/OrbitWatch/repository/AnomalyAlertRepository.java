@@ -49,5 +49,13 @@ public interface AnomalyAlertRepository extends JpaRepository<AnomalyAlert, Long
      */
     @Query("SELECT DISTINCT a.noradId FROM AnomalyAlert a WHERE a.acknowledged = false")
     List<Integer> findDistinctNoradIdsWithUnreadAlerts();
+
+    /**
+     * Supprime toutes les alertes d'anomalie détectées avant la borne donnée.
+     *
+     * @param cutoff borne temporelle : toute alerte antérieure est supprimée
+     * @return nombre d'enregistrements supprimés
+     */
+    int deleteByDetectedAtBefore(Instant cutoff);
 }
 
