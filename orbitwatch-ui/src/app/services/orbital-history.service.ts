@@ -14,10 +14,6 @@ export class OrbitalHistoryService {
     return this.http.get<OrbitalElements[]>(API_ENDPOINTS.orbitalHistory.byNorad(noradId), { params });
   }
 
-  /** Dernier snapshot connu */
-  getLatest(noradId: number): Observable<OrbitalElements> {
-    return this.http.get<OrbitalElements>(API_ENDPOINTS.orbitalHistory.latest(noradId));
-  }
 
   /** Résumé complet (TLE courant + dernier snapshot + conjunctions + textSummary) */
   getSummary(noradId: number): Observable<SatelliteSummary> {

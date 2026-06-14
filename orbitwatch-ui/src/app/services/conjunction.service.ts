@@ -29,14 +29,4 @@ export class ConjunctionService {
     const params = new HttpParams().set('page', page).set('size', size);
     return this.http.get<AlertPage>(API_ENDPOINTS.conjunction.alerts, { params });
   }
-
-  /** Alertes non acquittées — pour le badge navbar */
-  getUnreadAlerts(): Observable<ConjunctionAlert[]> {
-    return this.http.get<ConjunctionAlert[]>(API_ENDPOINTS.conjunction.alertsUnread);
-  }
-
-  /** Acquitte une alerte */
-  acknowledge(id: number): Observable<void> {
-    return this.http.put<void>(API_ENDPOINTS.conjunction.alertAck(id), null);
-  }
 }

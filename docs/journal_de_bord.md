@@ -777,3 +777,61 @@ Développer une plateforme web de surveillance spatiale permettant de :
 
 **Milestone 6 — TERMINÉ** (étapes 6.1 → 6.8 + polish UX étendu)
 
+---
+
+### 2026-06-07
+**Purge automatique des alertes anciennes (anomalies + conjunctions)**
+
+#### Contexte
+Les tables `anomaly_alert` et `conjunction_alert` s'accumulent sans limite dans le temps. Mise en place d'un mécanisme de purge TTL configurable, aligné sur le pattern déjà en vigueur pour `OrbitalHistoryJob`.
+
+#### Propriétés ajoutées (`application.properties`)
+
+| Propriété | Défaut | Rôle |
+|---|---|---|
+| `alerts.purge.enabled` | `true` | Active/désactive la purge automatique |
+| `alerts.purge.retention-days` | `5` | Rétention en jours (alertes plus anciennes supprimées) |
+| `alerts.purge.cron` | `0 0 2 * * *` | Heure d'exécution quotidienne (défaut : 02h00) |
+
+#### Repositories mis à jour
+- `AnomalyAlertRepository` : ajout de `deleteByDetectedAtBefore(Instant cutoff)` — Spring Data JPA génère le DELETE automatiquement
+- `ConjunctionAlertRepository` : même ajout `deleteByDetectedAtBefore(Instant cutoff)`
+
+#### `AlertPurgeJob` (nouveau, `job/`)
+- `@ConditionalOnProperty(alerts.purge.enabled, matchIfMissing = true)` — désactivable
+- **Au démarrage** : `@EventListener(ApplicationReadyEvent.class)` → purge immédiate dès que le contexte Spring est prêt
+- **Quotidiennement** : `@Scheduled(cron = "${alerts.purge.cron:0 0 2 * * *}")` → cron configurable
+- `@Transactional` sur chaque méthode publique (cohérence BDD garantie)
+- Logs `INFO` si des enregistrements sont supprimés, `DEBUG` sinon (pas de bruit en base propre)
+
+---
+
+### 2026-06-14
+**Purge du code mort et des stubs rétro-compatibles (frontend)**
+
+#### Contexte
+Suite à la refactorisation UX M6 (pages /orbit, /conjunction et /chat supprimées, vue 2D unifiée /map), plusieurs composants Angular avaient été conservés « pour rétro-compatibilité ». Suppression de tout ce qui n'est plus référencé.
+
+#### Composants entiers supprimés
+
+| Composant | Raison |
+|-----------|--------|
+| `components/alert-badge/` | Stub vide — seul `@Output() badgeClicked` déclaré, template vide, remplacé par le polling combiné intégré dans `GlobeComponent` |
+| `components/alert-panel/` | Stub désactivé — acquittement commenté, logique dupliquée dans le panneau satellite du globe |
+
+#### Templates nettoyés (5 composants)
+- Suppression de `<app-alert-badge (badgeClicked)="openPanel(...)">` partout
+- Suppression des blocs `@if (panelOpen) { <app-alert-panel> }`
+- Suppression de `[class.ack]="c.acknowledged"` sur les éléments `ConjunctionAlertRef` (champ inexistant sur ce type)
+
+#### Code TypeScript supprimé
+
+| Symbole | Fichier | Raison |
+|---------|---------|--------|
+| `satName: string \| null` | `SatelliteProfilePageComponent` | Jamais rendu dans le template |
+| `getLatest(noradId)` | `OrbitalHistoryService` | Zéro appel dans l'application |
+| `orbitalHistory.latest` endpoint | `api-endpoints.ts` | Correspondait à `getLatest()`, plus aucun usage |
+
+#### Décision conservée
+- Route `satellite/byname/:name` et méthode `loadByName()` dans `SatelliteProfilePageComponent` **conservées** — `MapLiveComponent` navigue encore par nom (le type `SatellitePosition` ne contient pas de `noradId`, seul le nom est disponible dans les popups Leaflet).
+

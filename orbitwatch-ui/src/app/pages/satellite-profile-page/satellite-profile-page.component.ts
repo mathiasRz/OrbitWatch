@@ -7,16 +7,11 @@ import {
 } from '@angular/core';
 import { CommonModule, DatePipe, DecimalPipe } from '@angular/common';
 import { ActivatedRoute, Router, RouterLink, RouterLinkActive } from '@angular/router';
-import { catchError, combineLatest, forkJoin, of, switchMap } from 'rxjs';
+import { catchError, forkJoin, of, switchMap } from 'rxjs';
 import { OrbitalHistoryService } from '../../services/orbital-history.service';
 import { AnomalyService } from '../../services/anomaly.service';
-import { AlertBadgeComponent } from '../../components/alert-badge/alert-badge.component';
-import { AlertPanelComponent } from '../../components/alert-panel/alert-panel.component';
 import { OrbitalChartComponent } from '../../components/orbital-chart/orbital-chart.component';
 import { OrbitalElements, SatelliteSummary, AnomalyAlert } from '../../models/satellite.model';
-import { ConjunctionAlert } from '../../models/conjunction.model';
-import { ConjunctionService } from '../../services/conjunction.service';
-import { CombinedAlerts } from '../../components/alert-badge/alert-badge.component';
 
 @Component({
   selector: 'app-satellite-profile-page',
@@ -27,8 +22,6 @@ import { CombinedAlerts } from '../../components/alert-badge/alert-badge.compone
     DecimalPipe,
     RouterLink,
     RouterLinkActive,
-    AlertBadgeComponent,
-    AlertPanelComponent,
     OrbitalChartComponent
   ],
   changeDetection: ChangeDetectionStrategy.OnPush,
@@ -38,7 +31,6 @@ import { CombinedAlerts } from '../../components/alert-badge/alert-badge.compone
 export class SatelliteProfilePageComponent implements OnInit {
 
   noradId: number | null = null;
-  satName: string | null = null;  // nom affiché en mode byname avant résolution
   summary: SatelliteSummary | null = null;
   history: OrbitalElements[] = [];
   anomalies: AnomalyAlert[] = [];
@@ -46,15 +38,11 @@ export class SatelliteProfilePageComponent implements OnInit {
   isLoading = true;
   errorMsg: string | null = null;
 
-  panelOpen = false;
-  panelAlerts: CombinedAlerts = { conjunctions: [], anomalies: [] };
-
   private readonly route             = inject(ActivatedRoute);
   private readonly router            = inject(Router);
   private readonly cdr               = inject(ChangeDetectorRef);
   private readonly orbitalHistorySvc = inject(OrbitalHistoryService);
   private readonly anomalySvc        = inject(AnomalyService);
-  private readonly conjunctionSvc    = inject(ConjunctionService);
 
   ngOnInit(): void {
     const noradParam = this.route.snapshot.paramMap.get('noradId');
@@ -71,7 +59,6 @@ export class SatelliteProfilePageComponent implements OnInit {
       this.noradId = id;
       this.loadByNoradId(id);
     } else if (nameParam) {
-      this.satName = nameParam;
       this.loadByName(nameParam);
     } else {
       this.errorMsg  = 'Paramètre manquant.';
@@ -143,26 +130,6 @@ export class SatelliteProfilePageComponent implements OnInit {
     this.router.navigate(['/map'], { queryParams: { mode: 'conjunction', sat1, sat2 } });
   }
 
-  openPanel(alerts: CombinedAlerts): void {
-    this.panelAlerts = alerts;
-    this.panelOpen   = true;
-    this.cdr.markForCheck();
-  }
-
-  closePanel(): void {
-    this.panelOpen = false;
-    this.cdr.markForCheck();
-  }
-
-  refreshPanel(): void {
-    combineLatest([
-      this.conjunctionSvc.getUnreadAlerts().pipe(catchError(() => of([] as ConjunctionAlert[]))),
-      this.anomalySvc.getUnreadAlerts().pipe(catchError(() => of([] as AnomalyAlert[])))
-    ]).subscribe(([conjunctions, anomalies]) => {
-      this.panelAlerts = { conjunctions, anomalies };
-      this.cdr.markForCheck();
-    });
-  }
 
   severityClass(severity: string): string {
     switch (severity) {

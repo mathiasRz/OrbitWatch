@@ -7,7 +7,6 @@
       <a routerLink="/map"   routerLinkActive="active">🗺️ Vue 2D</a>
       <a routerLink="/globe" routerLinkActive="active">🌍 Globe 3D</a>
     </nav>
-    <app-alert-badge (badgeClicked)="openPanel($any($event))"></app-alert-badge>
   </header>
 
   <!-- ── Layout principal ────────────────────────────────────────────────── -->
@@ -150,7 +149,3 @@
 
 </div><!-- /map-page -->
 
-@if (panelOpen) {
-  <app-alert-panel [alerts]="panelAlerts" (close)="closePanel()" (alertsChanged)="refreshPanel()">
-  </app-alert-panel>
-}

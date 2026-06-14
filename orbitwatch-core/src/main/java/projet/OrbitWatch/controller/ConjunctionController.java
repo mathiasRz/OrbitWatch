@@ -119,30 +119,6 @@ public class ConjunctionController {
         return ResponseEntity.ok(result);
     }
 
-    /**
-     * Alertes non acquittées, pour le badge de notification IHM.
-     *
-     * GET /api/v1/conjunction/alerts/unread
-     */
-    @GetMapping("/alerts/unread")
-    public ResponseEntity<List<ConjunctionAlert>> getUnreadAlerts() {
-        return ResponseEntity.ok(repository.findByAcknowledgedFalseOrderByTcaAsc());
-    }
-
-    /**
-     * Acquitte une alerte (la retire du badge IHM).
-     *
-     * PUT /api/v1/conjunction/alerts/{id}/ack
-     */
-    @PutMapping("/alerts/{id}/ack")
-    public ResponseEntity<Void> acknowledge(@PathVariable Long id) {
-        ConjunctionAlert alert = repository.findById(id)
-                .orElseThrow(() -> new AlertNotFoundException("Alerte introuvable : " + id));
-        alert.acknowledge();
-        repository.save(alert);
-        log.info("[ConjunctionController] Alerte {} acquittée.", id);
-        return ResponseEntity.noContent().build();
-    }
 
     // ─────────────────────────────────────────────────────────────────────────
     // DTOs internes (body des requêtes)

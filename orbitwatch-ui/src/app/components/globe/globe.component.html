@@ -29,19 +29,20 @@
           💠 Débris
           @if (debrisCount > 0) { <span class="chip-badge">{{ debrisCount }}</span> }
         </button>
-        <button class="layer-chip layer-chip--conj" [class.layer-chip--on]="showConjunctions" (click)="toggleConjunctions()">
+        <button class="layer-chip layer-chip--conj" [class.layer-chip--on]="conjPanelOpen" (click)="toggleConjunctions()">
           ⚡ Conjunctions
           @if (conjunctionCount > 0) { <span class="chip-badge chip-badge--alert">{{ conjunctionCount }}</span> }
         </button>
-        <!-- Bouton reset vue globale — mis en avant quand un satellite est sélectionné -->
+        <button class="layer-chip layer-chip--anomaly" [class.layer-chip--on]="anomalyPanelOpen" (click)="toggleAnomalies()">
+          ⚠ Anomalies
+          @if (anomalyCount > 0) { <span class="chip-badge chip-badge--anomaly">{{ anomalyCount }}</span> }
+        </button>
+        <!-- Bouton reset vue globale -->
         <button class="layer-chip layer-chip--reset"
                 [class.layer-chip--reset-active]="!!selectedSat"
                 (click)="resetToEarthView()"
-                title="Revenir à la vue globale">
-          🌍
-        </button>
+                title="Revenir à la vue globale">🌍</button>
       </div>
-      <app-alert-badge (badgeClicked)="openPanel($any($event))"></app-alert-badge>
     </div>
   </div>
 
@@ -59,13 +60,9 @@
       </div>
 
       <div class="sat-panel__search-wrap">
-        <input
-          class="sat-panel__search"
-          [ngModel]="satFilter"
-          (ngModelChange)="onFilterChange($event)"
-          placeholder="🔍 Rechercher…"
-          autocomplete="off"
-        />
+        <input class="sat-panel__search" [ngModel]="satFilter"
+               (ngModelChange)="onFilterChange($event)"
+               placeholder="🔍 Rechercher…" autocomplete="off" />
       </div>
 
       <div class="sat-panel__list">
@@ -81,12 +78,68 @@
             <div class="sat-item__row">
               <span class="sat-item__dot" [class.sat-item__dot--track]="activeGroundTrackSat === sat.name"></span>
               <span class="sat-item__name">{{ sat.name }}</span>
+              @if (coOrbitalMap.has(sat.name)) {
+                <span class="sat-item__docked" title="Amarré à un complexe orbital">🔗</span>
+              }
               <span class="sat-item__alt">{{ sat.altitude | number:'1.0-0' }} km</span>
               <span class="sat-item__chevron">{{ selectedSat?.name === sat.name ? '▲' : '▼' }}</span>
             </div>
 
+            <!-- Mini-badges alertes dans la ligne -->
+            @if ((anomalyMap.get(sat.name)?.length ?? 0) > 0 || (conjMapBySat.get(sat.name)?.length ?? 0) > 0) {
+              <div class="sat-item__alert-row">
+                @if ((anomalyMap.get(sat.name)?.length ?? 0) > 0) {
+                  <span class="sat-alert-badge sat-alert-badge--anomaly">⚠ {{ anomalyMap.get(sat.name)!.length }}</span>
+                }
+                @if ((conjMapBySat.get(sat.name)?.length ?? 0) > 0) {
+                  <span class="sat-alert-badge sat-alert-badge--conj">⚡ {{ conjMapBySat.get(sat.name)!.length }}</span>
+                }
+              </div>
+            }
+
             @if (selectedSat?.name === sat.name) {
               <div class="sat-actions" (click)="$event.stopPropagation()">
+
+                @if (coOrbitalMap.has(sat.name)) {
+                  <div class="sat-complex">
+                    <span class="sat-complex__title">🔗 Complexe orbital</span>
+                    <div class="sat-complex__members">
+                      @for (member of coOrbitalMap.get(sat.name)!.members; track member) {
+                        <span class="sat-complex__chip" [class.sat-complex__chip--self]="member === sat.name">
+                          {{ member }}
+                        </span>
+                      }
+                    </div>
+                  </div>
+                }
+
+                <!-- Anomalies inline -->
+                @if ((anomalyMap.get(sat.name)?.length ?? 0) > 0) {
+                  <div class="sat-inline-alerts">
+                    <div class="sat-inline-alerts__title">⚠ Anomalies récentes</div>
+                    @for (a of (anomalyMap.get(sat.name) ?? []).slice(0, 4); track a.id) {
+                      <div class="sat-inline-alert" [class.sat-inline-alert--high]="a.severity === 'HIGH'"
+                           [class.sat-inline-alert--medium]="a.severity === 'MEDIUM'">
+                        <span class="sat-inline-alert__type">{{ anomalyTypeLabel(a.type) }}</span>
+                        <span class="sat-inline-alert__desc">{{ a.description }}</span>
+                      </div>
+                    }
+                  </div>
+                }
+
+                <!-- Conjonctions inline -->
+                @if ((conjMapBySat.get(sat.name)?.length ?? 0) > 0) {
+                  <div class="sat-inline-alerts">
+                    <div class="sat-inline-alerts__title">⚡ Conjonctions</div>
+                    @for (c of (conjMapBySat.get(sat.name) ?? []).slice(0, 3); track c.id) {
+                      <div class="sat-inline-alert sat-inline-alert--conj"
+                           (click)="selectConjunction(c); conjPanelOpen = true; anomalyPanelOpen = false; cdr.markForCheck()">
+                        <span class="sat-inline-alert__type">{{ c.nameSat1 === sat.name ? c.nameSat2 : c.nameSat1 }}</span>
+                        <span class="sat-inline-alert__desc">{{ c.distanceKm | number:'1.2-2' }} km</span>
+                      </div>
+                    }
+                  </div>
+                }
 
                 <a class="sat-action sat-action--profile" [routerLink]="['/satellite/byname', sat.name]" title="Fiche satellite">
                   <span class="sat-action__icon">📋</span>
@@ -110,14 +163,13 @@
                   }
                 </button>
 
-                <a class="sat-action sat-action--conj" [routerLink]="['/map']" [queryParams]="{ mode: 'conjunction', sat1: sat.name }" title="Analyser les conjonctions">
+                <a class="sat-action sat-action--conj" [routerLink]="['/map']"
+                   [queryParams]="{ mode: 'conjunction', sat1: sat.name }" title="Analyser les conjonctions">
                   <span class="sat-action__icon">⚡</span>
                   <span class="sat-action__label">Conjunction</span>
                 </a>
 
-                <button class="sat-action sat-action--ai"
-                        (click)="openChatWithQuery(sat.name)"
-                        title="Analyser avec l'IA">
+                <button class="sat-action sat-action--ai" (click)="openChatWithQuery(sat.name)" title="Analyser avec l'IA">
                   <span class="sat-action__icon">🤖</span>
                   <span class="sat-action__label">Analyser</span>
                 </button>
@@ -138,9 +190,102 @@
     }
   </div>
 
-  <!-- ── Widget Chat IA ────────────────────────────────────────────────── -->
+  <!-- ── Panneau conjonctions (sidebar droite) ──────────────────────────────── -->
+  <div class="conj-panel" [class.conj-panel--open]="conjPanelOpen">
+    <div class="conj-panel__header">
+      <span class="conj-panel__title">⚡ Conjonctions</span>
+      <span class="conj-panel__count">{{ conjunctionCount }}</span>
+      <button class="conj-panel__close" (click)="toggleConjunctions()" title="Fermer">✕</button>
+    </div>
+    <div class="conj-panel__list">
+      @if (conjunctionCount === 0) {
+        <div class="conj-panel__empty">
+          <span class="conj-panel__empty-icon">✅</span>
+          <span>Aucune conjonction active</span>
+        </div>
+      }
+      @for (c of conjunctions; track c.id) {
+        <div class="conj-item" [class]="conjSeverityClass(c.distanceKm)"
+             [class.conj-item--selected]="activeConjunctionId === c.id"
+             (click)="selectConjunction(c)">
+          <div class="conj-item__severity">
+            {{ conjSeverityLabel(c.distanceKm) }}
+            @if (conjTrackLoading && activeConjunctionId === c.id) {
+              <span class="conj-item__spinner spin">⏳</span>
+            } @else if (activeConjunctionId === c.id) {
+              <span class="conj-item__active-dot">●</span>
+            }
+          </div>
+          <div class="conj-item__sats">
+            <span class="conj-item__sat conj-item__sat--1">{{ c.nameSat1 }}</span>
+            <span class="conj-item__vs">↔</span>
+            <span class="conj-item__sat conj-item__sat--2">{{ c.nameSat2 }}</span>
+          </div>
+          <div class="conj-item__meta">
+            <span class="conj-item__dist">{{ c.distanceKm | number:'1.2-2' }} km</span>
+            <span class="conj-item__tca">TCA {{ c.tca | date:'dd/MM HH:mm' }}</span>
+          </div>
+          @if (activeConjunctionId === c.id && conjTrackStatus) {
+            <div class="conj-item__track-status">
+              <span class="track-stat" [class.track-stat--ok]="conjTrackStatus.sat1 > 0" [class.track-stat--err]="conjTrackStatus.sat1 === 0">
+                <span class="track-stat__dot track-stat__dot--1"></span>
+                {{ c.nameSat1 }}
+                @if (conjTrackStatus.sat1 > 0) { <span class="track-stat__pts">{{ conjTrackStatus.sat1 }} pts</span> }
+                @else { <span class="track-stat__err">pas de TLE</span> }
+              </span>
+              <span class="track-stat" [class.track-stat--ok]="conjTrackStatus.sat2 > 0" [class.track-stat--err]="conjTrackStatus.sat2 === 0">
+                <span class="track-stat__dot track-stat__dot--2"></span>
+                {{ c.nameSat2 }}
+                @if (conjTrackStatus.sat2 > 0) { <span class="track-stat__pts">{{ conjTrackStatus.sat2 }} pts</span> }
+                @else { <span class="track-stat__err">pas de TLE</span> }
+              </span>
+            </div>
+          }
+        </div>
+      }
+    </div>
+    <div class="conj-panel__legend">
+      <span class="conj-legend conj-legend--critical"></span>&lt;1 km
+      <span class="conj-legend conj-legend--high"></span>1–5 km
+      <span class="conj-legend conj-legend--moderate"></span>&gt;5 km
+    </div>
+  </div>
 
-  <!-- Bouton FAB (toujours visible) -->
+  <!-- ── Panneau anomalies (sidebar droite, mutuellement exclusif) ─────────── -->
+  <div class="conj-panel anomaly-panel" [class.conj-panel--open]="anomalyPanelOpen">
+    <div class="conj-panel__header">
+      <span class="conj-panel__title anomaly-panel__title">⚠ Anomalies</span>
+      <span class="conj-panel__count">{{ anomalyCount }}</span>
+      <button class="conj-panel__close" (click)="toggleAnomalies()" title="Fermer">✕</button>
+    </div>
+    <div class="conj-panel__list">
+      @if (anomalyCount === 0) {
+        <div class="conj-panel__empty">
+          <span class="conj-panel__empty-icon">✅</span>
+          <span>Aucune anomalie détectée</span>
+        </div>
+      }
+      @for (a of anomalies; track a.id) {
+        <div class="anomaly-item" [class]="anomalySeverityClass(a.severity)"
+             (click)="flyToAnomalySat(a.satelliteName)">
+          <div class="anomaly-item__header">
+            <span class="anomaly-item__sat">{{ a.satelliteName }}</span>
+            <span class="anomaly-item__severity">{{ a.severity }}</span>
+          </div>
+          <div class="anomaly-item__type">{{ anomalyTypeLabel(a.type) }}</div>
+          <div class="anomaly-item__desc">{{ a.description }}</div>
+          <div class="anomaly-item__date">{{ a.detectedAt | date:'dd/MM HH:mm' }}</div>
+        </div>
+      }
+    </div>
+    <div class="conj-panel__legend">
+      <span class="conj-legend" style="background:#ff2222"></span>HIGH
+      <span class="conj-legend" style="background:#ff8800"></span>MEDIUM
+      <span class="conj-legend" style="background:#ffcc00"></span>LOW
+    </div>
+  </div>
+
+  <!-- ── Widget Chat IA ────────────────────────────────────────────────── -->
   <button class="chat-fab" [class.chat-fab--open]="chatOpen" (click)="toggleChat()" title="Assistant IA OrbitWatch">
     @if (chatOpen) {
       <span class="chat-fab__icon">✕</span>
@@ -150,25 +295,14 @@
     }
   </button>
 
-  <!-- Fenêtre de chat flottante (toujours montée, visibilité CSS) -->
-  <div class="chat-widget"
-       [class.chat-widget--open]="chatOpen"
-       [style.width.px]="chatWidth"
-       [style.height.px]="chatHeight">
-
-    <!-- Poignées de redimensionnement -->
+  <div class="chat-widget" [class.chat-widget--open]="chatOpen"
+       [style.width.px]="chatWidth" [style.height.px]="chatHeight">
     <div class="resize-handle resize-handle--top"    (mousedown)="startResize($event, 'top')"></div>
     <div class="resize-handle resize-handle--left"   (mousedown)="startResize($event, 'left')"></div>
     <div class="resize-handle resize-handle--corner" (mousedown)="startResize($event, 'corner')">
       <span class="resize-corner-icon">⤡</span>
     </div>
-
     <app-chat #chatWidget [widgetMode]="true" (closeWidget)="chatOpen = false; cdr.markForCheck()"></app-chat>
   </div>
 
 </div>
-
-@if (panelOpen) {
-  <app-alert-panel [alerts]="panelAlerts" (close)="closePanel()" (alertsChanged)="refreshPanel()">
-  </app-alert-panel>
-}

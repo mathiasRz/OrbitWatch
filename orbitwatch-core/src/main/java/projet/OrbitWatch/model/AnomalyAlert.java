@@ -51,9 +51,6 @@ public class AnomalyAlert {
     @Column(name = "description", columnDefinition = "TEXT")
     private String description;
 
-    /** {@code true} si l'alerte a été lue/acquittée par l'utilisateur. */
-    @Column(name = "acknowledged", nullable = false)
-    private boolean acknowledged = false;
 
     // ── Constructeurs ─────────────────────────────────────────────────────────
 
@@ -67,7 +64,6 @@ public class AnomalyAlert {
         this.type          = type;
         this.severity      = severity;
         this.description   = description;
-        this.acknowledged  = false;
     }
 
     // ── Getters / Setters ─────────────────────────────────────────────────────
@@ -79,8 +75,6 @@ public class AnomalyAlert {
     public AnomalyType     getType()          { return type; }
     public AnomalySeverity getSeverity()      { return severity; }
     public String          getDescription()   { return description; }
-    public boolean         isAcknowledged()   { return acknowledged; }
 
-    public void acknowledge() { this.acknowledged = true; }
 }
 

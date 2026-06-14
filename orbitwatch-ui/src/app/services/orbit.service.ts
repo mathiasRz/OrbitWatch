@@ -2,6 +2,7 @@ import { Injectable, inject } from '@angular/core';
 import { HttpClient, HttpParams } from '@angular/common/http';
 import { Observable } from 'rxjs';
 import { SatellitePosition } from '../models/satellite-position.model';
+import { CoOrbitalGroup } from '../models/co-orbital-group.model';
 import { API_ENDPOINTS } from '../config/api-endpoints';
 
 export interface GroundTrackParams {
@@ -37,5 +38,11 @@ export class OrbitService {
       .set('step',     p.step     ?? 60);
     if (p.epoch) params = params.set('epoch', p.epoch);
     return this.http.get<SatellitePosition[]>(API_ENDPOINTS.orbit.groundtrack, { params });
+  }
+
+  /** Retourne les groupes de satellites co-orbitaux (ex. complexe ISS). */
+  getCoOrbitalGroups(catalog: string = 'stations'): Observable<CoOrbitalGroup[]> {
+    const params = new HttpParams().set('catalog', catalog);
+    return this.http.get<CoOrbitalGroup[]>(API_ENDPOINTS.orbit.coOrbital, { params });
   }
 }

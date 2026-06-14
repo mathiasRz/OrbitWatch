@@ -121,11 +121,12 @@ public class OrbitWatchTools {
         }
     }
 
-    @Tool(description = "Retourne les anomalies orbitales non acquittées (max 10), triées par date de détection décroissante.")
+    @Tool(description = "Retourne les anomalies orbitales récentes (max 10), triées par date de détection décroissante.")
     public List<AnomalyAlertDto> getUnreadAnomalies() {
         log.info("[OrbitWatchTools] getUnreadAnomalies()");
         return anomalyAlertRepository
-                .findByAcknowledgedFalseOrderByDetectedAtDesc()
+                .findAll(org.springframework.data.domain.Sort.by(
+                        org.springframework.data.domain.Sort.Direction.DESC, "detectedAt"))
                 .stream()
                 .limit(MAX_ANOMALIES)
                 .map(a -> new AnomalyAlertDto(
@@ -163,9 +164,9 @@ public class OrbitWatchTools {
                 sb.append("Historique orbital non disponible.\n");
             }
 
-            long unreadCount = anomalyAlertRepository.findByNoradIdOrderByDetectedAtDesc(noradId)
-                    .stream().filter(a -> !a.isAcknowledged()).count();
-            sb.append("Anomalies non acquittées : ").append(unreadCount).append("\n");
+            long anomalyCount = anomalyAlertRepository.findByNoradIdOrderByDetectedAtDesc(noradId)
+                    .size();
+            sb.append("Anomalies détectées : ").append(anomalyCount).append("\n");
 
             return sb.toString();
         } catch (Exception e) {

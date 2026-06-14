@@ -4,8 +4,10 @@ import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.*;
+import projet.OrbitWatch.dto.CoOrbitalGroup;
 import projet.OrbitWatch.dto.SatellitePosition;
 import projet.OrbitWatch.dto.TleEntry;
+import projet.OrbitWatch.service.CoOrbitalService;
 import projet.OrbitWatch.service.PropagationService;
 import projet.OrbitWatch.service.TleService;
 
@@ -26,10 +28,14 @@ public class OrbitController {
 
     private final PropagationService propagationService;
     private final TleService tleService;
+    private final CoOrbitalService coOrbitalService;
 
-    public OrbitController(PropagationService propagationService, TleService tleService) {
+    public OrbitController(PropagationService propagationService,
+                           TleService tleService,
+                           CoOrbitalService coOrbitalService) {
         this.propagationService = propagationService;
-        this.tleService = tleService;
+        this.tleService         = tleService;
+        this.coOrbitalService   = coOrbitalService;
     }
 
     /**
@@ -102,4 +108,18 @@ public class OrbitController {
             throw e;
         }
     }
+
+    /**
+     * Retourne les groupes de satellites co-orbitaux (ex. complexe ISS).
+     *
+     * <p>GET /api/v1/orbit/co-orbital?catalog=stations
+     *
+     * @param catalog Nom du catalogue (défaut : "stations")
+     */
+    @GetMapping("/co-orbital")
+    public ResponseEntity<List<CoOrbitalGroup>> getCoOrbitalGroups(
+            @RequestParam(defaultValue = "stations") String catalog) {
+        return ResponseEntity.ok(coOrbitalService.findGroups(catalog));
+    }
+
 }

@@ -29,14 +29,4 @@ export class AnomalyService {
     params = params.set('page', filters.page ?? 0).set('size', filters.size ?? 20);
     return this.http.get<AnomalyAlertPage>(API_ENDPOINTS.anomaly.alerts, { params });
   }
-
-  /** Alertes non acquittées — pour le badge */
-  getUnreadAlerts(): Observable<AnomalyAlert[]> {
-    return this.http.get<AnomalyAlert[]>(API_ENDPOINTS.anomaly.alertsUnread);
-  }
-
-  /** Acquitte une alerte */
-  acknowledge(id: number): Observable<void> {
-    return this.http.put<void>(API_ENDPOINTS.anomaly.alertAck(id), null);
-  }
 }

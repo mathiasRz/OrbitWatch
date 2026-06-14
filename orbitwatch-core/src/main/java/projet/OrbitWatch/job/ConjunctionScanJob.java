@@ -38,6 +38,15 @@ public class ConjunctionScanJob {
     /** Fenêtre de déduplication : ±5 minutes autour du TCA pour éviter les doublons. */
     private static final long DEDUP_MARGIN_MINUTES = 5;
 
+    /**
+     * Seuil de détection co-orbital : deux satellites dont le mouvement moyen
+     * diffère de moins de 0.01 rev/jour ET l'inclinaison de moins de 0.1°
+     * sont considérés comme co-orbitaux (ex. modules ISS + vaisseaux amarrés)
+     * et leur paire est ignorée pour éviter les faux positifs permanents.
+     */
+    private static final double CO_ORBITAL_MEAN_MOTION_DELTA = 0.01; // rev/jour
+    private static final double CO_ORBITAL_INCLINATION_DELTA  = 0.1; // degrés
+
     @Value("#{'${conjunction.scan.catalogs:stations,active}'.split(',')}")
     private List<String> scannedCatalogs;
 
@@ -60,7 +69,6 @@ public class ConjunctionScanJob {
     @Scheduled(initialDelay = 30_000,
                fixedDelayString = "${conjunction.scan.delay-ms:3600000}")
     public void scan() {
-        // ── Garde-fou volume : ne scanner que les catalogues autorisés ────
         List<TleEntry> entries = new ArrayList<>();
         for (String catalog : scannedCatalogs) {
             entries.addAll(tleService.findByCatalog(catalog.trim()));
@@ -73,9 +81,10 @@ public class ConjunctionScanJob {
 
         log.info("[ConjunctionScanJob] Démarrage du scan — {} satellites à analyser.", entries.size());
 
-        int newAlerts  = 0;
-        int skipDedup  = 0;
-        int erreurs    = 0;
+        int newAlerts = 0;
+        int skipDedup = 0;
+        int skipCoOrb = 0;
+        int erreurs   = 0;
 
         for (int i = 0; i < entries.size(); i++) {
             for (int j = i + 1; j < entries.size(); j++) {
@@ -85,11 +94,20 @@ public class ConjunctionScanJob {
                 int norad1 = sat1.noradId();
                 int norad2 = sat2.noradId();
 
-                // Ignorer les entrées dont le NORAD ID n'a pas pu être extrait
                 if (norad1 <= 0 || norad2 <= 0) {
                     log.debug("[ConjunctionScanJob] NORAD ID invalide pour {} ({}) ou {} ({}) — paire ignorée.",
                             sat1.name(), norad1, sat2.name(), norad2);
                     erreurs++;
+                    continue;
+                }
+
+                // ── Filtre co-orbital ─────────────────────────────────────
+                // Exclut les paires sur la même orbite (modules ISS + vaisseaux amarrés)
+                // qui génèrent des faux positifs permanents.
+                if (isCoOrbital(sat1.line2(), sat2.line2())) {
+                    log.debug("[ConjunctionScanJob] Paire co-orbitale ignorée : {} ↔ {}",
+                            sat1.name(), sat2.name());
+                    skipCoOrb++;
                     continue;
                 }
 
@@ -103,7 +121,6 @@ public class ConjunctionScanJob {
                     ConjunctionReport report = conjunctionService.analyze(req);
 
                     for (ConjunctionEvent event : report.events()) {
-                        // Déduplication par NORAD ID : fenêtre ±5 min autour du TCA
                         Instant from = event.tca().minus(DEDUP_MARGIN_MINUTES, ChronoUnit.MINUTES);
                         Instant to   = event.tca().plus(DEDUP_MARGIN_MINUTES, ChronoUnit.MINUTES);
 
@@ -125,8 +142,9 @@ public class ConjunctionScanJob {
                         repository.save(alert);
                         newAlerts++;
 
-                        log.warn("[ConjunctionScanJob] ⚠ Nouvelle alerte : {} ({}) ↔ {} ({}) — {:.3f} km au {}",
-                                sat1.name(), norad1, sat2.name(), norad2, event.distanceKm(), event.tca());
+                        log.warn("[ConjunctionScanJob] ⚠ Nouvelle alerte : {} ({}) ↔ {} ({}) — {} km au {}",
+                                sat1.name(), norad1, sat2.name(), norad2,
+                                String.format("%.3f", event.distanceKm()), event.tca());
                     }
 
                 } catch (Exception ex) {
@@ -137,8 +155,28 @@ public class ConjunctionScanJob {
             }
         }
 
-        log.info("[ConjunctionScanJob] Scan terminé — {} nouvelle(s) alerte(s), {} dédupliquée(s), {} erreur(s).",
-                newAlerts, skipDedup, erreurs);
+        log.info("[ConjunctionScanJob] Scan terminé — {} nouvelle(s), {} dédupliquée(s), {} co-orbitale(s) ignorée(s), {} erreur(s).",
+                newAlerts, skipDedup, skipCoOrb, erreurs);
+    }
+
+    /**
+     * Détermine si deux satellites sont co-orbitaux en comparant leur mouvement
+     * moyen (colonnes 52-63 du TLE ligne 2) et leur inclinaison (colonnes 8-16).
+     *
+     * @param line2a TLE ligne 2 du satellite A
+     * @param line2b TLE ligne 2 du satellite B
+     * @return {@code true} si les deux satellites sont considérés co-orbitaux
+     */
+    static boolean isCoOrbital(String line2a, String line2b) {
+        try {
+            double mmA   = Double.parseDouble(line2a.substring(52, 63).trim());
+            double mmB   = Double.parseDouble(line2b.substring(52, 63).trim());
+            double inclA = Double.parseDouble(line2a.substring(8,  16).trim());
+            double inclB = Double.parseDouble(line2b.substring(8,  16).trim());
+            return Math.abs(mmA - mmB) < CO_ORBITAL_MEAN_MOTION_DELTA
+                && Math.abs(inclA - inclB) < CO_ORBITAL_INCLINATION_DELTA;
+        } catch (Exception e) {
+            return false;
+        }
     }
 }
-

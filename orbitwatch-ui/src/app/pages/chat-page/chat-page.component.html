@@ -8,18 +8,10 @@
       <a routerLink="/conjunction" routerLinkActive="active">⚠️ Conjunctions</a>
       <a routerLink="/chat"        routerLinkActive="active">🤖 Assistant IA</a>
     </nav>
-    <app-alert-badge (badgeClicked)="openPanel($any($event))"></app-alert-badge>
   </header>
   <div class="chat-container">
     <app-chat #chatComp></app-chat>
   </div>
 </div>
 
-@if (panelOpen) {
-  <app-alert-panel
-    [alerts]="panelAlerts"
-    (close)="closePanel()"
-    (alertsChanged)="refreshPanel()">
-  </app-alert-panel>
-}
 

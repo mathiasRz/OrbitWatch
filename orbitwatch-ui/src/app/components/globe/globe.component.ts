@@ -3,17 +3,16 @@ import {
   ViewChild, ElementRef, inject, Input,
   NgZone, ChangeDetectionStrategy, ChangeDetectorRef
 } from '@angular/core';
-import { CommonModule } from '@angular/common';
+import { CommonModule, DatePipe } from '@angular/common';
 import { RouterLink, RouterLinkActive } from '@angular/router';
 import { FormsModule } from '@angular/forms';
 import { interval, Subscription, switchMap, startWith, catchError, of, combineLatest } from 'rxjs';
 import { GlobeService } from '../../services/globe.service';
+import { OrbitService } from '../../services/orbit.service';
 import { SatellitePosition } from '../../models/satellite-position.model';
+import { CoOrbitalGroup } from '../../models/co-orbital-group.model';
 import { ConjunctionAlert } from '../../models/conjunction.model';
-import { AlertBadgeComponent, CombinedAlerts } from '../alert-badge/alert-badge.component';
-import { AlertPanelComponent } from '../alert-panel/alert-panel.component';
 import { ChatComponent } from '../chat/chat.component';
-import { ConjunctionService } from '../../services/conjunction.service';
 import { AnomalyService } from '../../services/anomaly.service';
 import { AnomalyAlert } from '../../models/satellite.model';
 
@@ -24,7 +23,7 @@ type CesiumViewer = any;
 @Component({
   selector: 'app-globe',
   standalone: true,
-  imports: [CommonModule, FormsModule, RouterLink, RouterLinkActive, AlertBadgeComponent, AlertPanelComponent, ChatComponent],
+  imports: [CommonModule, FormsModule, RouterLink, RouterLinkActive, ChatComponent, DatePipe],
   templateUrl: './globe.component.html',
   styleUrl: './globe.component.scss',
   changeDetection: ChangeDetectionStrategy.OnPush
@@ -38,15 +37,13 @@ export class GlobeComponent implements AfterViewInit, OnDestroy {
   /** Question à soumettre automatiquement au widget chat à l'arrivée (query param ?q=) */
   @Input() initialChatQuery?: string;
 
-  private readonly zone        = inject(NgZone);
-  readonly cdr                 = inject(ChangeDetectorRef);
+  private readonly zone         = inject(NgZone);
+  readonly cdr                  = inject(ChangeDetectorRef);
   private readonly globeService = inject(GlobeService);
-  private readonly conjunctionService = inject(ConjunctionService);
-  private readonly anomalyService     = inject(AnomalyService);
+  private readonly orbitService = inject(OrbitService);
+  private readonly anomalyService = inject(AnomalyService);
 
-  // ── Panel alertes ──────────────────────────────────────────────────────────
-  panelOpen    = false;
-  panelAlerts: CombinedAlerts = { conjunctions: [], anomalies: [] };
+  // ── Panels de droite (mutuellement exclusifs) ─────────────────────────────
 
   private viewer?: CesiumViewer;
   private stationsSub?: Subscription;
@@ -58,11 +55,32 @@ export class GlobeComponent implements AfterViewInit, OnDestroy {
   showConjunctions = true;
 
   // ── État UI ────────────────────────────────────────────────────────────────
-  loading         = true;
+  loading      = true;
   error: string | null = null;
-  stationCount    = 0;
-  debrisCount     = 0;
-  conjunctionCount = 0;
+  stationCount = 0;
+  debrisCount  = 0;
+
+  // ── Groupes co-orbitaux ───────────────────────────────────────────────────
+  coOrbitalGroups: CoOrbitalGroup[] = [];
+  /** Map nom satellite → groupe co-orbital */
+  coOrbitalMap    = new Map<string, CoOrbitalGroup>();
+
+  // ── Panneau conjonctions ──────────────────────────────────────────────────
+  conjPanelOpen      = false;
+  conjunctions: ConjunctionAlert[] = [];
+  conjunctionCount   = 0;
+  activeConjunctionId: number | null = null;
+  conjTrackLoading   = false;
+  conjTrackStatus: { sat1: number; sat2: number } | null = null;
+  /** Map nom satellite → conjonctions impliquant ce satellite */
+  conjMapBySat = new Map<string, ConjunctionAlert[]>();
+
+  // ── Panneau anomalies ─────────────────────────────────────────────────────
+  anomalyPanelOpen = false;
+  anomalies: AnomalyAlert[]  = [];
+  anomalyCount     = 0;
+  /** Map nom satellite → anomalies de ce satellite */
+  anomalyMap = new Map<string, AnomalyAlert[]>();
 
   // ── Ground track ───────────────────────────────────────────────────────────
   groundTrackLoading   = false;
@@ -101,6 +119,8 @@ export class GlobeComponent implements AfterViewInit, OnDestroy {
   private stationLayer?: any;
   private debrisLayer?: any;
   private conjunctionLayer?: any;
+  private conjHighlightLayer?: any;   // trajectoires + ligne lors d'une sélection
+  private coOrbitalLayer?: any;       // liaisons entre satellites co-orbitaux
   private groundTrackLayer?: any;
   private selectionHaloLayer?: any;    // anneau de sélection satellite
 
@@ -120,6 +140,8 @@ export class GlobeComponent implements AfterViewInit, OnDestroy {
           this.loadStations();
           this.loadDebris();
           this.loadConjunctions();
+          this.loadAnomalies();
+          this.loadCoOrbitalGroups();
           // Ouvrir le widget chat si un query param `q` a été transmis
           if (this.initialChatQuery) {
             this.openChatWithRawQuery(this.initialChatQuery);
@@ -175,10 +197,14 @@ export class GlobeComponent implements AfterViewInit, OnDestroy {
 
     this.stationLayer    = new Cesium.CustomDataSource('stations');
     this.conjunctionLayer = new Cesium.CustomDataSource('conjunctions');
+    this.conjHighlightLayer = new Cesium.CustomDataSource('conjHighlight');
+    this.coOrbitalLayer   = new Cesium.CustomDataSource('coOrbital');
     this.groundTrackLayer = new Cesium.CustomDataSource('groundtrack');
     this.selectionHaloLayer = new Cesium.CustomDataSource('selectionHalo');
     this.viewer.dataSources.add(this.stationLayer);
     this.viewer.dataSources.add(this.conjunctionLayer);
+    this.viewer.dataSources.add(this.conjHighlightLayer);
+    this.viewer.dataSources.add(this.coOrbitalLayer);
     this.viewer.dataSources.add(this.groundTrackLayer);
     this.viewer.dataSources.add(this.selectionHaloLayer);
 
@@ -237,6 +263,8 @@ export class GlobeComponent implements AfterViewInit, OnDestroy {
           ? positions.find(s => s.name === this.selectedSat!.name) ?? null
           : null;
         this.updateSelectionHalo(updatedSat);
+        // Rafraîchir les liaisons co-orbitales avec les nouvelles positions
+        this.renderCoOrbitalLinks();
       });
       this.zone.run(() => {
         // Mettre à jour la référence selectedSat avec la nouvelle position
@@ -335,12 +363,111 @@ export class GlobeComponent implements AfterViewInit, OnDestroy {
         return of([] as ConjunctionAlert[]);
       })
     ).subscribe(alerts => {
+      // Construire la map satellite → conjonctions
+      const conjMap = new Map<string, ConjunctionAlert[]>();
+      for (const c of alerts) {
+        for (const name of [c.nameSat1, c.nameSat2]) {
+          const list = conjMap.get(name) ?? [];
+          list.push(c);
+          conjMap.set(name, list);
+        }
+      }
       this.zone.runOutsideAngular(() => this.renderConjunctions(alerts));
       this.zone.run(() => {
+        this.conjunctions     = alerts;
         this.conjunctionCount = alerts.length;
+        this.conjMapBySat     = conjMap;
         this.cdr.markForCheck();
       });
     });
+  }
+
+  /** Charge toutes les anomalies récentes et construit la map par satellite. */
+  private loadAnomalies(): void {
+    this.anomalyService.getAlerts({ size: 200 }).pipe(
+      catchError(err => {
+        console.warn('[Globe] Erreur anomalies :', err);
+        return of({ content: [] as AnomalyAlert[], totalElements: 0, totalPages: 0, number: 0, size: 0 });
+      })
+    ).subscribe(page => {
+      const alerts = page.content ?? [];
+      const map = new Map<string, AnomalyAlert[]>();
+      for (const a of alerts) {
+        const list = map.get(a.satelliteName) ?? [];
+        list.push(a);
+        map.set(a.satelliteName, list);
+      }
+      this.zone.run(() => {
+        this.anomalies    = alerts;
+        this.anomalyCount = alerts.length;
+        this.anomalyMap   = map;
+        this.cdr.markForCheck();
+      });
+    });
+  }
+
+  /** Charge les groupes co-orbitaux et met à jour la couche de liaison sur le globe. */
+  private loadCoOrbitalGroups(): void {
+    this.orbitService.getCoOrbitalGroups('stations').pipe(
+      catchError(err => {
+        console.warn('[Globe] Erreur co-orbital groups :', err);
+        return of([] as CoOrbitalGroup[]);
+      })
+    ).subscribe(groups => {
+      // Construire la map nom → groupe pour un accès O(1)
+      const map = new Map<string, CoOrbitalGroup>();
+      for (const g of groups) {
+        for (const name of g.members) {
+          map.set(name, g);
+        }
+      }
+      this.zone.run(() => {
+        this.coOrbitalGroups = groups;
+        this.coOrbitalMap    = map;
+        this.cdr.markForCheck();
+      });
+    });
+  }
+
+  /**
+   * Redessine les lignes de liaison entre satellites co-orbitaux en utilisant
+   * les positions actuelles chargées dans {@code this.stations}.
+   * Appelé après chaque refresh des positions.
+   */
+  private renderCoOrbitalLinks(): void {
+    if (!this.viewer || !this.coOrbitalLayer || !this.cesium || this.coOrbitalGroups.length === 0) return;
+    const Cesium = this.cesium;
+    this.coOrbitalLayer.entities.removeAll();
+
+    for (const group of this.coOrbitalGroups) {
+      // Récupère les positions connues pour les membres de ce groupe
+      const positions = group.members
+        .map(name => this.stations.find(s => s.name === name))
+        .filter((s): s is SatellitePosition => s !== undefined);
+
+      if (positions.length < 2) continue;
+
+      // Dessine une ligne entre chaque paire consécutive (chaîne)
+      for (let i = 0; i < positions.length - 1; i++) {
+        const p1 = positions[i];
+        const p2 = positions[i + 1];
+        this.coOrbitalLayer.entities.add({
+          polyline: {
+            positions: [
+              Cesium.Cartesian3.fromDegrees(p1.longitude, p1.latitude, p1.altitude * 1000),
+              Cesium.Cartesian3.fromDegrees(p2.longitude, p2.latitude, p2.altitude * 1000),
+            ],
+            width: 1,
+            material: new Cesium.ColorMaterialProperty(
+              Cesium.Color.fromCssColorString('#ffffff22')
+            ),
+            depthFailMaterial: new Cesium.ColorMaterialProperty(
+              Cesium.Color.fromCssColorString('#ffffff11')
+            ),
+          }
+        });
+      }
+    }
   }
 
   private renderConjunctions(alerts: ConjunctionAlert[]): void {
@@ -374,28 +501,6 @@ export class GlobeComponent implements AfterViewInit, OnDestroy {
     this.conjunctionLayer.show = this.showConjunctions;
   }
 
-  // ── Panel alertes ────────────────────────────────────────────────────────
-
-  openPanel(alerts: CombinedAlerts): void {
-    this.panelAlerts = alerts;
-    this.panelOpen   = true;
-    this.cdr.markForCheck();
-  }
-
-  closePanel(): void {
-    this.panelOpen = false;
-    this.cdr.markForCheck();
-  }
-
-  refreshPanel(): void {
-    combineLatest([
-      this.conjunctionService.getUnreadAlerts().pipe(catchError(() => of([] as ConjunctionAlert[]))),
-      this.anomalyService.getUnreadAlerts().pipe(catchError(() => of([] as AnomalyAlert[])))
-    ]).subscribe(([conjunctions, anomalies]) => {
-      this.panelAlerts = { conjunctions, anomalies };
-      this.cdr.markForCheck();
-    });
-  }
 
   // ── Panneau satellites ────────────────────────────────────────────────────
 
@@ -694,9 +799,316 @@ export class GlobeComponent implements AfterViewInit, OnDestroy {
   }
 
   toggleConjunctions(): void {
-    this.showConjunctions = !this.showConjunctions;
+    this.conjPanelOpen    = !this.conjPanelOpen;
+    this.showConjunctions = this.conjPanelOpen;
     if (this.conjunctionLayer) this.conjunctionLayer.show = this.showConjunctions;
+    if (this.conjPanelOpen) this.anomalyPanelOpen = false; // mutuellement exclusifs
     this.cdr.markForCheck();
+  }
+
+  toggleAnomalies(): void {
+    this.anomalyPanelOpen = !this.anomalyPanelOpen;
+    if (this.anomalyPanelOpen) this.conjPanelOpen = false; // mutuellement exclusifs
+    this.cdr.markForCheck();
+  }
+
+  // ── Helpers anomalies ────────────────────────────────────────────────────
+
+  anomalyTypeLabel(type: string): string {
+    const labels: Record<string, string> = {
+      'ALTITUDE_CHANGE':    '↕ Altitude',
+      'INCLINATION_CHANGE': '↗ Inclinaison',
+      'RAAN_DRIFT':         '↻ Dérive RAAN',
+      'ECCENTRICITY_CHANGE':'⬡ Excentricité',
+      'STATISTICAL':        '📊 Statistique',
+    };
+    return labels[type] ?? type;
+  }
+
+  anomalySeverityClass(severity: string): string {
+    if (severity === 'HIGH')   return 'anomaly-item--high';
+    if (severity === 'MEDIUM') return 'anomaly-item--medium';
+    return 'anomaly-item--low';
+  }
+
+  /** Vol vers le satellite concerné par une anomalie. */
+  flyToAnomalySat(satName: string): void {
+    const sat = this.stations.find(s => s.name === satName);
+    if (!sat) return;
+    this.selectedSat  = sat;
+    this.satPanelOpen = true;
+    this.zone.runOutsideAngular(() => {
+      this.updateSelectionHalo(sat);
+      this.flyToSatellite(satName);
+    });
+    this.cdr.markForCheck();
+  }
+
+  /** Sélectionne une conjonction : charge les deux tracés orbitaux + met en avant la ligne. */
+  selectConjunction(alert: ConjunctionAlert): void {
+    // Désélection si on clique sur la même
+    if (this.activeConjunctionId === alert.id) {
+      this.activeConjunctionId = null;
+      this.conjTrackStatus     = null;
+      this.conjHighlightLayer?.entities.removeAll();
+      this.cdr.markForCheck();
+      return;
+    }
+
+    this.activeConjunctionId = alert.id;
+    this.conjTrackLoading    = true;
+    this.conjTrackStatus     = null;
+    this.conjHighlightLayer?.entities.removeAll();
+    this.cdr.markForCheck();
+
+    // Epoch centré sur le TCA → satellite au milieu du tracé
+    const tcaMs      = new Date(alert.tca).getTime();
+    const epochStart = new Date(tcaMs - 45 * 60 * 1000).toISOString();
+
+    combineLatest([
+      this.orbitService.getGroundTrack({ name: alert.nameSat1, epoch: epochStart, duration: 90, step: 60 })
+        .pipe(catchError(err => { console.warn(`[Conj] Tracé ${alert.nameSat1} échec :`, err.status ?? err.message); return of([] as SatellitePosition[]); })),
+      this.orbitService.getGroundTrack({ name: alert.nameSat2, epoch: epochStart, duration: 90, step: 60 })
+        .pipe(catchError(err => { console.warn(`[Conj] Tracé ${alert.nameSat2} échec :`, err.status ?? err.message); return of([] as SatellitePosition[]); })),
+    ]).subscribe(([track1, track2]) => {
+      console.info(`[Conj] ${alert.nameSat1} → ${track1.length} pts | ${alert.nameSat2} → ${track2.length} pts`);
+      if (track1.length > 0 && track2.length > 0) {
+        const midPt1 = track1[Math.floor(track1.length / 2)];
+        const midPt2 = track2[Math.floor(track2.length / 2)];
+        console.info(`[Conj] Positions au TCA — ${alert.nameSat1}: (${midPt1.latitude.toFixed(2)}, ${midPt1.longitude.toFixed(2)}, ${midPt1.altitude.toFixed(0)} km) | ${alert.nameSat2}: (${midPt2.latitude.toFixed(2)}, ${midPt2.longitude.toFixed(2)}, ${midPt2.altitude.toFixed(0)} km)`);
+      }
+      this.zone.runOutsideAngular(() => this.renderConjunctionHighlight(alert, track1, track2));
+      this.zone.run(() => {
+        this.conjTrackLoading = false;
+        this.conjTrackStatus  = { sat1: track1.length, sat2: track2.length };
+        this.cdr.markForCheck();
+      });
+    });
+
+    // Vol immédiat vers le point de conjonction
+    this.flyToConjunction(alert);
+  }
+
+  private renderConjunctionHighlight(
+    alert: ConjunctionAlert,
+    track1: SatellitePosition[],
+    track2: SatellitePosition[]
+  ): void {
+    if (!this.viewer || !this.conjHighlightLayer || !this.cesium) return;
+    const Cesium = this.cesium;
+    this.conjHighlightLayer.entities.removeAll();
+
+    const toPts = (pts: SatellitePosition[]) =>
+      pts.map(p => Cesium.Cartesian3.fromDegrees(p.longitude, p.latitude, p.altitude * 1000));
+
+    /** Ajoute des marqueurs (losanges) tous les STEP points pour différencier les tracés */
+    const addMarkers = (pts: SatellitePosition[], color: string, step = 6) => {
+      for (let i = 0; i < pts.length; i += step) {
+        this.conjHighlightLayer!.entities.add({
+          position: Cesium.Cartesian3.fromDegrees(pts[i].longitude, pts[i].latitude, pts[i].altitude * 1000),
+          point: {
+            pixelSize: 5,
+            color:        Cesium.Color.fromCssColorString(color),
+            outlineColor: Cesium.Color.fromCssColorString('#00000066'),
+            outlineWidth: 1,
+            disableDepthTestDistance: Number.POSITIVE_INFINITY,
+          }
+        });
+      }
+    };
+
+    // ── Tracé satellite 1 : cyan ───────────────────────────────────────────
+    if (track1.length > 1) {
+      const mid = Math.floor(track1.length / 2);
+      this.conjHighlightLayer.entities.add({
+        polyline: {
+          positions: toPts(track1.slice(0, mid + 1)),
+          width: 1.5,
+          material: new Cesium.PolylineDashMaterialProperty({
+            color: Cesium.Color.fromCssColorString('#006888'), dashLength: 12
+          }),
+        }
+      });
+      this.conjHighlightLayer.entities.add({
+        polyline: {
+          positions: toPts(track1.slice(mid)),
+          width: 2.5,
+          material: new Cesium.PolylineDashMaterialProperty({
+            color: Cesium.Color.fromCssColorString('#00d4ff'), dashLength: 16
+          }),
+        }
+      });
+      addMarkers(track1, '#00d4ff');
+    }
+
+    // ── Tracé satellite 2 : magenta ───────────────────────────────────────
+    if (track2.length > 1) {
+      const mid = Math.floor(track2.length / 2);
+      this.conjHighlightLayer.entities.add({
+        polyline: {
+          positions: toPts(track2.slice(0, mid + 1)),
+          width: 1.5,
+          material: new Cesium.PolylineDashMaterialProperty({
+            color: Cesium.Color.fromCssColorString('#882266'), dashLength: 12
+          }),
+        }
+      });
+      this.conjHighlightLayer.entities.add({
+        polyline: {
+          positions: toPts(track2.slice(mid)),
+          width: 2.5,
+          material: new Cesium.PolylineDashMaterialProperty({
+            color: Cesium.Color.fromCssColorString('#ff44cc'), dashLength: 16
+          }),
+        }
+      });
+      addMarkers(track2, '#ff44cc');
+    }
+
+    // ── Ligne de conjonction mise en avant ────────────────────────────────
+    const pos1 = Cesium.Cartesian3.fromDegrees(alert.lon1, alert.lat1, alert.alt1 * 1000);
+    const pos2 = Cesium.Cartesian3.fromDegrees(alert.lon2, alert.lat2, alert.alt2 * 1000);
+
+    const lineColor = alert.distanceKm < 1
+      ? '#ff2222'
+      : alert.distanceKm < 5 ? '#ff8800' : '#ffcc00';
+
+    // Halo blanc derrière la ligne
+    this.conjHighlightLayer.entities.add({
+      polyline: {
+        positions: [pos1, pos2],
+        width: 8,
+        material: new Cesium.ColorMaterialProperty(Cesium.Color.fromCssColorString('#ffffff18')),
+        depthFailMaterial: new Cesium.ColorMaterialProperty(Cesium.Color.TRANSPARENT),
+      }
+    });
+    // Ligne principale colorée par sévérité
+    this.conjHighlightLayer.entities.add({
+      polyline: {
+        positions: [pos1, pos2],
+        width: 3,
+        material: new Cesium.ColorMaterialProperty(Cesium.Color.fromCssColorString(lineColor)),
+        depthFailMaterial: new Cesium.ColorMaterialProperty(Cesium.Color.fromCssColorString(lineColor + '66')),
+      }
+    });
+
+    // ── Points satellites aux extrémités ─────────────────────────────────
+    // Sat1 — cyan
+    this.conjHighlightLayer.entities.add({
+      position: pos1,
+      point: {
+        pixelSize: 12,
+        color:        Cesium.Color.fromCssColorString('#00d4ff'),
+        outlineColor: Cesium.Color.WHITE,
+        outlineWidth: 2,
+        disableDepthTestDistance: Number.POSITIVE_INFINITY,
+      },
+      label: {
+        text:         alert.nameSat1,
+        font:         '11px sans-serif',
+        fillColor:    Cesium.Color.fromCssColorString('#00d4ff'),
+        outlineColor: Cesium.Color.BLACK,
+        outlineWidth: 2,
+        style:        Cesium.LabelStyle.FILL_AND_OUTLINE,
+        pixelOffset:  new Cesium.Cartesian2(0, -20),
+        verticalOrigin: Cesium.VerticalOrigin.BOTTOM,
+        disableDepthTestDistance: Number.POSITIVE_INFINITY,
+      }
+    });
+    // Sat2 — magenta
+    this.conjHighlightLayer.entities.add({
+      position: pos2,
+      point: {
+        pixelSize: 12,
+        color:        Cesium.Color.fromCssColorString('#ff44cc'),
+        outlineColor: Cesium.Color.WHITE,
+        outlineWidth: 2,
+        disableDepthTestDistance: Number.POSITIVE_INFINITY,
+      },
+      label: {
+        text:         alert.nameSat2,
+        font:         '11px sans-serif',
+        fillColor:    Cesium.Color.fromCssColorString('#ff44cc'),
+        outlineColor: Cesium.Color.BLACK,
+        outlineWidth: 2,
+        style:        Cesium.LabelStyle.FILL_AND_OUTLINE,
+        pixelOffset:  new Cesium.Cartesian2(0, -20),
+        verticalOrigin: Cesium.VerticalOrigin.BOTTOM,
+        disableDepthTestDistance: Number.POSITIVE_INFINITY,
+      }
+    });
+  }
+
+  /** Vole face à la conjonction : caméra perpendiculaire au segment, vue de côté. */
+  flyToConjunction(alert: ConjunctionAlert): void {
+    if (!this.viewer || !this.cesium) return;
+    const Cesium = this.cesium;
+
+    this.zone.runOutsideAngular(() => {
+      const pos1 = Cesium.Cartesian3.fromDegrees(alert.lon1, alert.lat1, alert.alt1 * 1000);
+      const pos2 = Cesium.Cartesian3.fromDegrees(alert.lon2, alert.lat2, alert.alt2 * 1000);
+
+      // Midpoint entre les deux satellites
+      const mid = new Cesium.Cartesian3(
+        (pos1.x + pos2.x) / 2,
+        (pos1.y + pos2.y) / 2,
+        (pos1.z + pos2.z) / 2
+      );
+
+      // Vecteur de conjonction normalisé (sat1 → sat2)
+      const conjVec = Cesium.Cartesian3.normalize(
+        Cesium.Cartesian3.subtract(pos2, pos1, new Cesium.Cartesian3()),
+        new Cesium.Cartesian3()
+      );
+
+      // Radiale terrestre au midpoint (centre Terre → midpoint) = "up" local
+      const radial = Cesium.Cartesian3.normalize(
+        Cesium.Cartesian3.clone(mid),
+        new Cesium.Cartesian3()
+      );
+
+      // Vecteur latéral ⊥ au segment ET à la radiale
+      // → la caméra sera sur le côté, regardant le segment de face
+      const sideVec = Cesium.Cartesian3.normalize(
+        Cesium.Cartesian3.cross(conjVec, radial, new Cesium.Cartesian3()),
+        new Cesium.Cartesian3()
+      );
+
+      // Distance caméra : assez grande pour voir les deux tracés (min 800 km)
+      const conjDistM = Cesium.Cartesian3.distance(pos1, pos2);
+      const camDistM  = Math.max(conjDistM * 8, 800_000);
+
+      // Position caméra : midpoint + décalage latéral
+      const camPos = Cesium.Cartesian3.add(
+        mid,
+        Cesium.Cartesian3.multiplyByScalar(sideVec, camDistM, new Cesium.Cartesian3()),
+        new Cesium.Cartesian3()
+      );
+
+      // Direction de regard : caméra → midpoint
+      const direction = Cesium.Cartesian3.normalize(
+        Cesium.Cartesian3.subtract(mid, camPos, new Cesium.Cartesian3()),
+        new Cesium.Cartesian3()
+      );
+
+      this.viewer!.camera.flyTo({
+        destination: camPos,
+        orientation: { direction, up: radial },
+        duration: 2,
+      });
+    });
+  }
+
+  conjSeverityLabel(distKm: number): string {
+    if (distKm < 1)  return 'CRITIQUE';
+    if (distKm < 5)  return 'ÉLEVÉ';
+    return 'MODÉRÉ';
+  }
+
+  conjSeverityClass(distKm: number): string {
+    if (distKm < 1)  return 'conj-item--critical';
+    if (distKm < 5)  return 'conj-item--high';
+    return 'conj-item--moderate';
   }
 
   // ── Utilitaires ───────────────────────────────────────────────────────────

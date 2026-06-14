@@ -21,8 +21,7 @@ CREATE TABLE IF NOT EXISTS conjunction_alert (
     lat2         DOUBLE PRECISION,
     lon2         DOUBLE PRECISION,
     alt2         DOUBLE PRECISION,
-    detected_at  TIMESTAMPTZ  NOT NULL,
-    acknowledged BOOLEAN      NOT NULL DEFAULT FALSE
+    detected_at  TIMESTAMPTZ  NOT NULL
 );
 
 -- Index de déduplication basé sur les NORAD IDs (plus fiables que les noms)
@@ -56,8 +55,7 @@ CREATE TABLE IF NOT EXISTS anomaly_alert (
     detected_at    TIMESTAMPTZ              NOT NULL,
     type           VARCHAR(30)              NOT NULL,
     severity       VARCHAR(10)              NOT NULL,
-    description    TEXT,
-    acknowledged   BOOLEAN                  NOT NULL DEFAULT FALSE
+    description    TEXT
 );
 
 CREATE INDEX IF NOT EXISTS idx_anomaly_norad_type

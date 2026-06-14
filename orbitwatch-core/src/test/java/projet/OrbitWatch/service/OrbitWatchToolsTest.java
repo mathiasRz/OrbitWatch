@@ -215,10 +215,11 @@ class OrbitWatchToolsTest {
     // ═════════════════════════════════════════════════════════════════════════
 
     @Test
-    @DisplayName("getUnreadAnomalies() → retourne les anomalies non acquittées")
+    @DisplayName("getUnreadAnomalies() → retourne les anomalies récentes")
     void getUnreadAnomalies_returnsUnacknowledgedAlerts() {
         AnomalyAlert alert = buildAnomalyAlert("ISS (ZARYA)", AnomalyType.ALTITUDE_CHANGE, AnomalySeverity.MEDIUM);
-        when(anomalyAlertRepository.findByAcknowledgedFalseOrderByDetectedAtDesc())
+        when(anomalyAlertRepository.findAll(org.springframework.data.domain.Sort.by(
+                org.springframework.data.domain.Sort.Direction.DESC, "detectedAt")))
                 .thenReturn(List.of(alert));
 
         List<AnomalyAlertDto> result = tools.getUnreadAnomalies();
@@ -233,7 +234,8 @@ class OrbitWatchToolsTest {
     @DisplayName("getUnreadAnomalies → limite à 10 même si la BDD en retourne plus")
     void getUnreadAnomalies_limitsTo10() {
         List<AnomalyAlert> manyAlerts = buildAnomalyAlerts(15);
-        when(anomalyAlertRepository.findByAcknowledgedFalseOrderByDetectedAtDesc())
+        when(anomalyAlertRepository.findAll(org.springframework.data.domain.Sort.by(
+                org.springframework.data.domain.Sort.Direction.DESC, "detectedAt")))
                 .thenReturn(manyAlerts);
 
         List<AnomalyAlertDto> result = tools.getUnreadAnomalies();

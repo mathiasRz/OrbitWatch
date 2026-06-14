@@ -31,7 +31,6 @@ export interface ConjunctionAlertRef {
   nameSat2: string;
   tca: string;
   distanceKm: number;
-  acknowledged: boolean;
 }
 
 export interface AnomalyAlert {
@@ -42,7 +41,6 @@ export interface AnomalyAlert {
   type: AnomalyType;
   severity: AnomalySeverity;
   description: string;
-  acknowledged: boolean;
 }
 
 export type AnomalyType =

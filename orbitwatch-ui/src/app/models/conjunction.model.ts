@@ -47,7 +47,6 @@ export interface ConjunctionAlert {
   lat1: number; lon1: number; alt1: number;
   lat2: number; lon2: number; alt2: number;
   detectedAt: string;
-  acknowledged: boolean;
 }
 
 export interface AlertPage {

@@ -61,9 +61,6 @@ public class ConjunctionAlert {
     @Column(name = "detected_at", nullable = false)
     private Instant detectedAt;
 
-    /** {@code true} si l'alerte a été lue/acquittée par l'utilisateur. */
-    @Column(name = "acknowledged", nullable = false)
-    private boolean acknowledged = false;
 
     // ── Constructeurs ─────────────────────────────────────────────────────────
 
@@ -87,7 +84,6 @@ public class ConjunctionAlert {
         this.lon2        = lon2;
         this.alt2        = alt2;
         this.detectedAt  = Instant.now();
-        this.acknowledged = false;
     }
 
     // ── Getters / Setters ─────────────────────────────────────────────────────
@@ -106,8 +102,6 @@ public class ConjunctionAlert {
     public double  getLon2()        { return lon2; }
     public double  getAlt2()        { return alt2; }
     public Instant getDetectedAt()  { return detectedAt; }
-    public boolean isAcknowledged() { return acknowledged; }
 
-    public void acknowledge() { this.acknowledged = true; }
 }
 

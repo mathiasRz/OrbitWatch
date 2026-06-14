@@ -11,10 +11,11 @@ export const API_ENDPOINTS = {
 
   // ── Orbite & propagation ─────────────────────────────────────────────────
   orbit: {
-    position:   `${BASE_URL}/orbit/position`,
-    positions:  `${BASE_URL}/orbit/positions`,
-    groundtrack:`${BASE_URL}/orbit/groundtrack`,
-    heatmap:    `${BASE_URL}/orbit/heatmap`,
+    position:    `${BASE_URL}/orbit/position`,
+    positions:   `${BASE_URL}/orbit/positions`,
+    groundtrack: `${BASE_URL}/orbit/groundtrack`,
+    heatmap:     `${BASE_URL}/orbit/heatmap`,
+    coOrbital:   `${BASE_URL}/orbit/co-orbital`,
   },
 
   // ── Catalogue TLE ────────────────────────────────────────────────────────
@@ -25,7 +26,6 @@ export const API_ENDPOINTS = {
   // ── Historique orbital ───────────────────────────────────────────────────
   orbitalHistory: {
     byNorad:    (noradId: number) => `${BASE_URL}/orbital-history/${noradId}`,
-    latest:     (noradId: number) => `${BASE_URL}/orbital-history/${noradId}/latest`,
     export:     (noradId: number) => `${BASE_URL}/orbital-history/${noradId}/export`,
   },
 
@@ -40,8 +40,6 @@ export const API_ENDPOINTS = {
     analyze:       `${BASE_URL}/conjunction/analyze`,
     analyzeByName: `${BASE_URL}/conjunction/analyze-by-name`,
     alerts:        `${BASE_URL}/conjunction/alerts`,
-    alertsUnread:  `${BASE_URL}/conjunction/alerts/unread`,
-    alertAck:      (id: number) => `${BASE_URL}/conjunction/alerts/${id}/ack`,
   },
 
   // ── Assistant IA / RAG ───────────────────────────────────────────────────
@@ -53,9 +51,7 @@ export const API_ENDPOINTS = {
 
   // ── Anomalies ─────────────────────────────────────────────────────────────
   anomaly: {
-    alerts:       `${BASE_URL}/anomaly/alerts`,
-    alertsUnread: `${BASE_URL}/anomaly/alerts/unread`,
-    alertAck:     (id: number) => `${BASE_URL}/anomaly/alerts/${id}/ack`,
+    alerts: `${BASE_URL}/anomaly/alerts`,
   },
 
 } as const;

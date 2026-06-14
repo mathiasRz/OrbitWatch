@@ -154,7 +154,7 @@ public class PropagationService {
             ));
         }
 
-        log.info("Ground track généré : {} points sur {} min (pas {}s)",
+        log.debug("Ground track généré : {} points sur {} min (pas {}s)",
                 track.size(), durationMinutes, stepSeconds);
         return track;
     }

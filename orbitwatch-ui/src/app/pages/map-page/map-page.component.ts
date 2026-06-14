@@ -4,20 +4,14 @@ import {
 } from '@angular/core';
 import { CommonModule, DatePipe, DecimalPipe } from '@angular/common';
 import { ActivatedRoute, RouterLink, RouterLinkActive } from '@angular/router';
-import { combineLatest, catchError, of } from 'rxjs';
 import { MapLiveComponent }        from '../../components/map-live/map-live.component';
 import { MapComponent }            from '../../components/map/map.component';
 import { ConjunctionMapComponent } from '../../components/conjunction-map/conjunction-map.component';
 import { TleFormComponent }        from '../../components/tle-form/tle-form.component';
 import { ConjunctionFormComponent } from '../../components/conjunction-form/conjunction-form.component';
-import { AlertBadgeComponent, CombinedAlerts } from '../../components/alert-badge/alert-badge.component';
-import { AlertPanelComponent }     from '../../components/alert-panel/alert-panel.component';
 import { OrbitService, GroundTrackParams } from '../../services/orbit.service';
-import { ConjunctionService }      from '../../services/conjunction.service';
-import { AnomalyService }          from '../../services/anomaly.service';
 import { SatellitePosition }       from '../../models/satellite-position.model';
-import { ConjunctionReport, ConjunctionAlert } from '../../models/conjunction.model';
-import { AnomalyAlert }            from '../../models/satellite.model';
+import { ConjunctionReport }       from '../../models/conjunction.model';
 
 export type MapMode = 'live' | 'orbit' | 'conjunction';
 
@@ -29,7 +23,6 @@ export type MapMode = 'live' | 'orbit' | 'conjunction';
     RouterLink, RouterLinkActive,
     MapLiveComponent, MapComponent, ConjunctionMapComponent,
     TleFormComponent, ConjunctionFormComponent,
-    AlertBadgeComponent, AlertPanelComponent
   ],
   changeDetection: ChangeDetectionStrategy.OnPush,
   templateUrl: './map-page.component.html',
@@ -37,10 +30,8 @@ export type MapMode = 'live' | 'orbit' | 'conjunction';
 })
 export class MapPageComponent implements OnInit {
 
-  // ── Mode actif ──────────────────────────────────────────────────────────
   mode: MapMode = 'live';
 
-  // ── Ground track state ───────────────────────────────────────────────────
   track        = signal<SatellitePosition[]>([]);
   trackLoading = signal(false);
   trackError   = signal<string | null>(null);
@@ -50,20 +41,13 @@ export class MapPageComponent implements OnInit {
     return t.reduce((s, p) => s + p.altitude, 0) / t.length;
   });
 
-  // ── Conjunction state ────────────────────────────────────────────────────
   conjReport:  ConjunctionReport | null = null;
   conjLoading = false;
   conjError:   string | null = null;
 
-  // ── Alerts ───────────────────────────────────────────────────────────────
-  panelOpen    = false;
-  panelAlerts: CombinedAlerts = { conjunctions: [], anomalies: [] };
-
-  private readonly route              = inject(ActivatedRoute);
-  private readonly cdr                = inject(ChangeDetectorRef);
-  private readonly orbitService       = inject(OrbitService);
-  private readonly conjunctionService = inject(ConjunctionService);
-  private readonly anomalyService     = inject(AnomalyService);
+  private readonly route        = inject(ActivatedRoute);
+  private readonly cdr          = inject(ChangeDetectorRef);
+  private readonly orbitService = inject(OrbitService);
 
   ngOnInit(): void {
     const params = this.route.snapshot.queryParamMap;
@@ -83,14 +67,12 @@ export class MapPageComponent implements OnInit {
     this.cdr.markForCheck();
   }
 
-  // ── Live : satellite sélectionné depuis la carte → passe en mode orbit ──
   onSatelliteSelected(name: string): void {
     this.mode = 'orbit';
     this.onPropagate({ name, duration: 90, step: 60 });
     this.cdr.markForCheck();
   }
 
-  // ── Ground track ─────────────────────────────────────────────────────────
   onPropagate(params: GroundTrackParams): void {
     this.trackError.set(null);
     this.trackLoading.set(true);
@@ -103,7 +85,6 @@ export class MapPageComponent implements OnInit {
     });
   }
 
-  // ── Conjunction ──────────────────────────────────────────────────────────
   onReportReady(report: ConjunctionReport): void {
     this.conjReport = report;
     this.cdr.markForCheck();
@@ -123,27 +104,5 @@ export class MapPageComponent implements OnInit {
     if (distanceKm < 1) return 'critical';
     if (distanceKm < 5) return 'warning';
     return 'caution';
-  }
-
-  // ── Alerts ───────────────────────────────────────────────────────────────
-  openPanel(alerts: CombinedAlerts): void {
-    this.panelAlerts = alerts;
-    this.panelOpen   = true;
-    this.cdr.markForCheck();
-  }
-
-  closePanel(): void {
-    this.panelOpen = false;
-    this.cdr.markForCheck();
-  }
-
-  refreshPanel(): void {
-    combineLatest([
-      this.conjunctionService.getUnreadAlerts().pipe(catchError(() => of([] as ConjunctionAlert[]))),
-      this.anomalyService.getUnreadAlerts().pipe(catchError(() => of([] as AnomalyAlert[])))
-    ]).subscribe(([conjunctions, anomalies]) => {
-      this.panelAlerts = { conjunctions, anomalies };
-      this.cdr.markForCheck();
-    });
   }
 }

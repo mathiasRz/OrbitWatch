@@ -115,6 +115,9 @@
 
   &--debris.layer-chip--on  { background: #1e1200; color: #ffa500; border-color: #ffa50044; }
   &--conj.layer-chip--on    { background: #1e0800; color: #ff8800; border-color: #ff880044; }
+  &--anomaly {
+    &.layer-chip--on { background: #1e1000; color: #ffcc00; border-color: #ffcc0044; }
+  }
 
   // Bouton reset vue globale
   &--reset {
@@ -142,7 +145,8 @@
   min-width: 16px;
   text-align: center;
 
-  &--alert { background: #3a1010; color: #ff8888; }
+  &--alert   { background: #3a1010; color: #ff8888; }
+  &--anomaly { background: #3a2a00; color: #ffcc66; }
 }
 
 // ── Panneau satellites (sidebar gauche) ───────────────────────────────────
@@ -310,6 +314,153 @@
   .sat-item--active & { color: #00d4ff88; }
 }
 
+// ── Mini-badges alertes par satellite ─────────────────────────────────────
+
+.sat-item__alert-row {
+  display: flex;
+  gap: 0.3rem;
+  padding: 0.1rem 0.65rem 0.3rem;
+}
+
+.sat-alert-badge {
+  font-size: 0.62rem;
+  padding: 0.05rem 0.4rem;
+  border-radius: 8px;
+  font-weight: 600;
+
+  &--anomaly { background: #2a1800; color: #ffcc44; border: 1px solid #ffcc4433; }
+  &--conj    { background: #1e0800; color: #ff8844; border: 1px solid #ff884433; }
+}
+
+// ── Alertes inline dans le détail satellite ────────────────────────────────
+
+.sat-inline-alerts {
+  grid-column: 1 / -1;
+  margin-bottom: 0.35rem;
+}
+
+.sat-inline-alerts__title {
+  font-size: 0.62rem;
+  font-weight: 600;
+  color: #555;
+  text-transform: uppercase;
+  letter-spacing: 0.06em;
+  padding: 0.25rem 0 0.15rem;
+}
+
+.sat-inline-alert {
+  display: flex;
+  justify-content: space-between;
+  align-items: baseline;
+  gap: 0.3rem;
+  padding: 0.2rem 0.4rem;
+  margin-bottom: 0.15rem;
+  border-radius: 4px;
+  background: #0d0d1e;
+  border-left: 2px solid #333;
+  cursor: default;
+
+  &--high   { border-left-color: #ff4444; }
+  &--medium { border-left-color: #ff8800; }
+  &--conj   { border-left-color: #ff8800; cursor: pointer;
+    &:hover { background: #150e04; }
+  }
+
+  &__type { font-size: 0.65rem; color: #aaa; flex-shrink: 0; }
+  &__desc { font-size: 0.62rem; color: #666; text-align: right; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+}
+
+// ── Panneau anomalies (variante du conj-panel) ─────────────────────────────
+
+.anomaly-panel {
+  border-left-color: #2a1a00;
+}
+
+.anomaly-panel__title { color: #ffcc00 !important; }
+
+.anomaly-item {
+  padding: 0.55rem 0.75rem;
+  border-bottom: 1px solid #120c00;
+  cursor: pointer;
+  transition: background 0.15s;
+  border-left: 3px solid #555;
+
+  &:hover { background: #110c00; }
+
+  &--high   { border-left-color: #ff2222;
+    .anomaly-item__severity { color: #ff4444; }
+  }
+  &--medium { border-left-color: #ff8800;
+    .anomaly-item__severity { color: #ffaa44; }
+  }
+  &--low    { border-left-color: #ffcc00;
+    .anomaly-item__severity { color: #ddbb44; }
+  }
+
+  &__header {
+    display: flex;
+    justify-content: space-between;
+    margin-bottom: 0.2rem;
+  }
+
+  &__sat      { font-size: 0.76rem; color: #ddd; font-weight: 600; }
+  &__severity { font-size: 0.6rem; font-weight: 700; letter-spacing: 0.08em; text-transform: uppercase; }
+  &__type     { font-size: 0.7rem; color: #999; margin-bottom: 0.15rem; }
+  &__desc     { font-size: 0.68rem; color: #666; line-height: 1.3; margin-bottom: 0.15rem; }
+  &__date     { font-size: 0.62rem; color: #444; }
+}
+
+// ── Complexe orbital (sat co-orbitaux) ───────────────────────────────────
+
+.sat-item__docked {
+  font-size: 0.7rem;
+  opacity: 0.7;
+  flex-shrink: 0;
+  cursor: help;
+}
+
+.sat-complex {
+  grid-column: 1 / -1;
+  padding: 0.4rem 0.5rem;
+  background: #0a1520;
+  border: 1px solid #1a3a50;
+  border-radius: 5px;
+  margin-bottom: 0.2rem;
+}
+
+.sat-complex__title {
+  display: block;
+  font-size: 0.62rem;
+  font-weight: 600;
+  color: #4a9abb;
+  text-transform: uppercase;
+  letter-spacing: 0.06em;
+  margin-bottom: 0.3rem;
+}
+
+.sat-complex__members {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.25rem;
+}
+
+.sat-complex__chip {
+  font-size: 0.62rem;
+  padding: 0.1rem 0.4rem;
+  background: #0d1e2a;
+  border: 1px solid #1a3a50;
+  border-radius: 10px;
+  color: #6a9ab8;
+  white-space: nowrap;
+
+  &--self {
+    background: #0a2535;
+    border-color: #00d4ff44;
+    color: #00d4ff;
+    font-weight: 600;
+  }
+}
+
 // ── Actions du satellite sélectionné ──────────────────────────────────────
 
 .sat-actions {
@@ -364,6 +515,43 @@
   &__label { font-size: 0.65rem; color: inherit; white-space: nowrap; }
 }
 
+.conj-item__track-status {
+  display: flex;
+  flex-direction: column;
+  gap: 0.2rem;
+  margin-top: 0.4rem;
+  padding-top: 0.35rem;
+  border-top: 1px solid #1a1a2a;
+}
+
+.track-stat {
+  display: flex;
+  align-items: center;
+  gap: 0.3rem;
+  font-size: 0.65rem;
+  color: #555;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+
+  &--ok  { color: #888; }
+  &--err { color: #aa4444; }
+
+  &__dot {
+    display: inline-block;
+    width: 7px;
+    height: 7px;
+    border-radius: 50%;
+    flex-shrink: 0;
+
+    &--1 { background: #00d4ff; }
+    &--2 { background: #ff44cc; }
+  }
+
+  &__pts  { color: #666; margin-left: auto; font-size: 0.6rem; }
+  &__err  { color: #cc4444; margin-left: auto; font-size: 0.6rem; font-style: italic; }
+}
+
 // ── Légende débris compacte ────────────────────────────────────────────────
 
 .sat-panel__legend {
@@ -387,6 +575,214 @@
   &--green  { background: #00ff88; }
   &--orange { background: #ffa500; }
   &--red    { background: #ff4444; }
+}
+
+// ── Panneau conjonctions (sidebar droite) ─────────────────────────────────
+
+.conj-panel {
+  position: absolute;
+  top: 46px;
+  right: 0;
+  bottom: 0;
+  z-index: 150;
+  width: 260px;
+  display: flex;
+  flex-direction: column;
+  background: rgba(8, 8, 20, 0.96);
+  border-left: 1px solid #2a1a0a;
+  transform: translateX(100%);
+  transition: transform 0.25s ease;
+  pointer-events: none;
+
+  &--open {
+    transform: translateX(0);
+    pointer-events: auto;
+  }
+}
+
+.conj-panel__header {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  padding: 0.5rem 0.75rem 0.4rem;
+  background: rgba(10, 8, 20, 0.98);
+  border-bottom: 1px solid #2a1a0a;
+}
+
+.conj-panel__title {
+  flex: 1;
+  font-size: 0.78rem;
+  font-weight: 600;
+  color: #ff8800;
+  text-transform: uppercase;
+  letter-spacing: 0.07em;
+}
+
+.conj-panel__count {
+  font-size: 0.7rem;
+  background: #2a1400;
+  color: #ff8800aa;
+  border-radius: 10px;
+  padding: 1px 7px;
+}
+
+.conj-panel__close {
+  background: transparent;
+  border: none;
+  color: #555;
+  cursor: pointer;
+  font-size: 0.8rem;
+  padding: 0 2px;
+  line-height: 1;
+  transition: color 0.15s;
+
+  &:hover { color: #ff4444; }
+}
+
+.conj-panel__list {
+  flex: 1;
+  overflow-y: auto;
+
+  &::-webkit-scrollbar { width: 4px; }
+  &::-webkit-scrollbar-track { background: transparent; }
+  &::-webkit-scrollbar-thumb { background: #2a1a0a; border-radius: 2px; }
+}
+
+.conj-panel__empty {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 0.5rem;
+  padding: 2rem 1rem;
+  color: #444;
+  font-size: 0.78rem;
+  text-align: center;
+}
+
+.conj-panel__empty-icon { font-size: 1.5rem; }
+
+// ── Item conjonction ───────────────────────────────────────────────────────
+
+.conj-item {
+  padding: 0.55rem 0.75rem;
+  border-bottom: 1px solid #120c04;
+  cursor: pointer;
+  transition: background 0.15s;
+
+  &:hover { background: #110b04; }
+
+  &--selected {
+    background: #0d1020 !important;
+    border-left-width: 4px !important;
+    box-shadow: inset 2px 0 8px rgba(255, 255, 255, 0.04);
+  }
+
+  &--critical {
+    border-left: 3px solid #ff2222;
+    .conj-item__severity { color: #ff2222; }
+    .conj-item__dist     { color: #ff4444; }
+    &.conj-item--selected { border-left-color: #ff4444; }
+  }
+  &--high {
+    border-left: 3px solid #ff8800;
+    .conj-item__severity { color: #ff8800; }
+    .conj-item__dist     { color: #ffaa44; }
+    &.conj-item--selected { border-left-color: #ffaa00; }
+  }
+  &--moderate {
+    border-left: 3px solid #ffcc00;
+    .conj-item__severity { color: #ccaa00; }
+    .conj-item__dist     { color: #ddbb44; }
+    &.conj-item--selected { border-left-color: #ffdd44; }
+  }
+}
+
+.conj-item__severity {
+  font-size: 0.62rem;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.08em;
+  margin-bottom: 0.25rem;
+  display: flex;
+  align-items: center;
+  gap: 0.3rem;
+}
+
+.conj-item__spinner { font-size: 0.75rem; }
+
+.conj-item__active-dot {
+  font-size: 0.5rem;
+  animation: pulse-dot 1.2s ease-in-out infinite;
+}
+
+@keyframes pulse-dot {
+  0%, 100% { opacity: 1; }
+  50%       { opacity: 0.3; }
+}
+
+.conj-item__sats {
+  display: flex;
+  align-items: center;
+  gap: 0.3rem;
+  margin-bottom: 0.2rem;
+}
+
+.conj-item__sat {
+  font-size: 0.75rem;
+  color: #ddd;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  max-width: 90px;
+
+  // Couleurs distinctives par satellite
+  &--1 { color: #00d4ff; }
+  &--2 { color: #ff44cc; }
+}
+
+.conj-item__vs {
+  font-size: 0.7rem;
+  color: #555;
+  flex-shrink: 0;
+}
+
+.conj-item__meta {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+}
+
+.conj-item__dist {
+  font-size: 0.72rem;
+  font-weight: 600;
+}
+
+.conj-item__tca {
+  font-size: 0.65rem;
+  color: #555;
+}
+
+.conj-panel__legend {
+  display: flex;
+  align-items: center;
+  gap: 0.4rem;
+  padding: 0.3rem 0.75rem;
+  background: rgba(8, 8, 20, 0.98);
+  border-top: 1px solid #1a1004;
+  font-size: 0.65rem;
+  color: #555;
+}
+
+.conj-legend {
+  display: inline-block;
+  width: 8px;
+  height: 8px;
+  border-radius: 50%;
+  flex-shrink: 0;
+
+  &--critical { background: #ff2222; }
+  &--high     { background: #ff8800; }
+  &--moderate { background: #ffcc00; }
 }
 
 // ── Animations ────────────────────────────────────────────────────────────

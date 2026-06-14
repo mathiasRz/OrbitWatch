@@ -18,43 +18,25 @@ public interface AnomalyAlertRepository extends JpaRepository<AnomalyAlert, Long
         JpaSpecificationExecutor<AnomalyAlert> {
 
     /**
-     * Alertes non acquittées, triées par date de détection décroissante
-     * — utilisé pour le badge IHM et le compteur non-lus.
-     */
-    List<AnomalyAlert> findByAcknowledgedFalseOrderByDetectedAtDesc();
-
-    /**
      * Déduplication : vérifie si une anomalie du même type existe déjà
      * pour ce satellite après un instant donné (fenêtre de ±6h).
-     *
-     * @param noradId    identifiant NORAD du satellite
-     * @param type       type d'anomalie
-     * @param after      borne inférieure de la fenêtre de déduplication
-     * @return {@code true} si une alerte similaire existe déjà dans la fenêtre
      */
     boolean existsByNoradIdAndTypeAndDetectedAtAfter(
             int noradId, AnomalyType type, Instant after);
 
     /**
      * Alertes d'un satellite donné, triées par date décroissante.
-     *
-     * @param noradId identifiant NORAD
-     * @return liste des alertes pour ce satellite
      */
     List<AnomalyAlert> findByNoradIdOrderByDetectedAtDesc(int noradId);
 
     /**
-     * Liste des NORAD IDs distincts ayant au moins une alerte non acquittée
-     * — utile pour le batch de scan.
+     * Liste des NORAD IDs distincts ayant au moins une alerte — utile pour le batch de scan.
      */
-    @Query("SELECT DISTINCT a.noradId FROM AnomalyAlert a WHERE a.acknowledged = false")
-    List<Integer> findDistinctNoradIdsWithUnreadAlerts();
+    @Query("SELECT DISTINCT a.noradId FROM AnomalyAlert a")
+    List<Integer> findDistinctNoradIdsWithAlerts();
 
     /**
      * Supprime toutes les alertes d'anomalie détectées avant la borne donnée.
-     *
-     * @param cutoff borne temporelle : toute alerte antérieure est supprimée
-     * @return nombre d'enregistrements supprimés
      */
     int deleteByDetectedAtBefore(Instant cutoff);
 }

@@ -167,7 +167,7 @@ public class OrbitalHistoryController {
         // ── 3. Conjonctions récentes impliquant ce satellite (filtre par NORAD ID) ─
         String satName = latest.getSatelliteName();
         List<ConjunctionAlert> recent = conjunctionAlertRepository
-                .findByAcknowledgedFalseOrderByTcaAsc()
+                .findByDetectedAtAfterOrderByDistanceKmAsc(Instant.now().minus(7, ChronoUnit.DAYS))
                 .stream()
                 .filter(a -> a.getNoradId1() == noradId || a.getNoradId2() == noradId)
                 .limit(RECENT_CONJUNCTIONS_LIMIT)

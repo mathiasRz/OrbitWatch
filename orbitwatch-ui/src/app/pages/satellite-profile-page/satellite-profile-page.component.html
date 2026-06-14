@@ -7,7 +7,6 @@
       <a routerLink="/map"   routerLinkActive="active">🗺️ Vue 2D</a>
       <a routerLink="/globe" routerLinkActive="active">🌍 Globe 3D</a>
     </nav>
-    <app-alert-badge (badgeClicked)="openPanel($any($event))"></app-alert-badge>
   </header>
 
   <div class="content">
@@ -125,7 +124,7 @@
           <p class="empty-msg">Aucun rapprochement détecté pour ce satellite.</p>
         }
         @for (c of summary.recentConjunctions; track c.id) {
-          <div class="conj-card" [class.ack]="c.acknowledged">
+          <div class="conj-card">
             <div class="conj-header">
               <span class="conj-sats">{{ c.nameSat1 }} ↔ {{ c.nameSat2 }}</span>
               <span class="conj-dist">{{ c.distanceKm | number:'1.1-1' }} km</span>
@@ -142,13 +141,6 @@
     }
   </div>
 
-  @if (panelOpen) {
-    <app-alert-panel
-      [alerts]="panelAlerts"
-      (close)="closePanel()"
-      (alertsChanged)="refreshPanel()">
-    </app-alert-panel>
-  }
 </div>
 
 
