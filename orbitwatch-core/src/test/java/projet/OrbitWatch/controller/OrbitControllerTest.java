@@ -10,6 +10,7 @@ import org.springframework.test.context.bean.override.mockito.MockitoBean;
 import org.springframework.test.web.servlet.MockMvc;
 import projet.OrbitWatch.dto.SatellitePosition;
 import projet.OrbitWatch.dto.TleEntry;
+import projet.OrbitWatch.service.CoOrbitalService;
 import projet.OrbitWatch.service.PropagationService;
 import projet.OrbitWatch.service.TleService;
 
@@ -40,6 +41,9 @@ class OrbitControllerTest {
 
     @MockitoBean
     private TleService tleService;
+
+    @MockitoBean
+    private CoOrbitalService coOrbitalService;
 
     private static final String TLE_LINE1 =
             "1 25544U 98067A   26066.50000000  .00020000  00000+0  35000-3 0  9990";

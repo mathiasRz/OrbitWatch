@@ -112,7 +112,6 @@ class AnomalyDetectionServiceTest {
         assertThat(alerts.get(0).getType()).isEqualTo(AnomalyType.ALTITUDE_CHANGE);
         assertThat(alerts.get(0).getNoradId()).isEqualTo(NORAD_ISS);
         assertThat(alerts.get(0).getDescription()).contains("Perigee");
-        assertThat(alerts.get(0).isAcknowledged()).isFalse();
     }
 
     @Test

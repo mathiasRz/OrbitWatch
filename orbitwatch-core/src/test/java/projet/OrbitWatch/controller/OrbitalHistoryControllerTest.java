@@ -145,7 +145,7 @@ class OrbitalHistoryControllerTest {
                 eq(NORAD_ISS), any(Pageable.class)))
                 .thenReturn(List.of(issSnapshot(T0)));
         when(tleService.findAll()).thenReturn(List.of());
-        when(conjunctionAlertRepository.findByAcknowledgedFalseOrderByTcaAsc())
+        when(conjunctionAlertRepository.findByDetectedAtAfterOrderByDistanceKmAsc(any(Instant.class)))
                 .thenReturn(List.of());
 
         mockMvc.perform(get("/api/v1/satellite/{noradId}/summary", NORAD_ISS))
@@ -169,7 +169,7 @@ class OrbitalHistoryControllerTest {
                 "ISS (ZARYA)", "CSS", 25544, 48274, T0, 3.5, 45.0, 10.0, 410.0, 40.0, 15.0, 390.0);
         ConjunctionAlert otherAlert = new ConjunctionAlert(
                 "SENTINEL-1A", "CSS", 39634, 48274, T0, 5.0, 10.0, 5.0, 500.0, 15.0, 20.0, 510.0);
-        when(conjunctionAlertRepository.findByAcknowledgedFalseOrderByTcaAsc())
+        when(conjunctionAlertRepository.findByDetectedAtAfterOrderByDistanceKmAsc(any(Instant.class)))
                 .thenReturn(List.of(issAlert, otherAlert));
 
         mockMvc.perform(get("/api/v1/satellite/{noradId}/summary", NORAD_ISS))
@@ -198,7 +198,7 @@ class OrbitalHistoryControllerTest {
                 eq(NORAD_ISS), any(Pageable.class)))
                 .thenReturn(List.of(issSnapshot(oldEpoch)));
         when(tleService.findAll()).thenReturn(List.of());
-        when(conjunctionAlertRepository.findByAcknowledgedFalseOrderByTcaAsc())
+        when(conjunctionAlertRepository.findByDetectedAtAfterOrderByDistanceKmAsc(any(Instant.class)))
                 .thenReturn(List.of());
 
         mockMvc.perform(get("/api/v1/satellite/{noradId}/summary", NORAD_ISS))

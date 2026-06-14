@@ -21,7 +21,6 @@ import projet.OrbitWatch.service.TleService;
 
 import java.time.Instant;
 import java.util.List;
-import java.util.Optional;
 
 import static org.hamcrest.Matchers.*;
 import static org.mockito.ArgumentMatchers.any;
@@ -270,58 +269,6 @@ class ConjunctionControllerTest {
                 .andExpect(jsonPath("$.content", hasSize(1)));
     }
 
-    // ─────────────────────────────────────────────────────────────────────────
-    // GET /alerts/unread
-    // ─────────────────────────────────────────────────────────────────────────
-
-    @Test
-    @DisplayName("GET /alerts/unread : retourne la liste des alertes non acquittées")
-    void getUnreadAlerts_returnsUnreadList() throws Exception {
-        ConjunctionAlert alert = new ConjunctionAlert(
-                "ISS", "CSS", 25544, 48274, NOW, 3.5, 45.0, 10.0, 410.0, 40.0, 15.0, 390.0);
-        when(repository.findByAcknowledgedFalseOrderByTcaAsc()).thenReturn(List.of(alert));
-
-        mockMvc.perform(get("/api/v1/conjunction/alerts/unread"))
-                .andExpect(status().isOk())
-                .andExpect(jsonPath("$", hasSize(1)))
-                .andExpect(jsonPath("$[0].acknowledged", is(false)));
-    }
-
-    @Test
-    @DisplayName("GET /alerts/unread : aucune alerte → 200 liste vide")
-    void getUnreadAlerts_empty_returns200() throws Exception {
-        when(repository.findByAcknowledgedFalseOrderByTcaAsc()).thenReturn(List.of());
-
-        mockMvc.perform(get("/api/v1/conjunction/alerts/unread"))
-                .andExpect(status().isOk())
-                .andExpect(jsonPath("$", hasSize(0)));
-    }
-
-    // ─────────────────────────────────────────────────────────────────────────
-    // PUT /alerts/{id}/ack
-    // ─────────────────────────────────────────────────────────────────────────
-
-    @Test
-    @DisplayName("PUT /alerts/{id}/ack : alerte existante → 204 + save appelé")
-    void acknowledge_existingAlert_returns204() throws Exception {
-        ConjunctionAlert alert = new ConjunctionAlert(
-                "ISS", "CSS", 25544, 48274, NOW, 3.5, 45.0, 10.0, 410.0, 40.0, 15.0, 390.0);
-        when(repository.findById(1L)).thenReturn(Optional.of(alert));
-
-        mockMvc.perform(put("/api/v1/conjunction/alerts/1/ack"))
-                .andExpect(status().isNoContent());
-
-        verify(repository).save(alert);
-    }
-
-    @Test
-    @DisplayName("PUT /alerts/{id}/ack : alerte introuvable → 404")
-    void acknowledge_notFound_returns404() throws Exception {
-        when(repository.findById(99L)).thenReturn(Optional.empty());
-
-        mockMvc.perform(put("/api/v1/conjunction/alerts/99/ack"))
-                .andExpect(status().isNotFound());
-    }
 }
 
 
